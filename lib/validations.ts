@@ -18,12 +18,17 @@ export const registerSchema = z
   })
 
 export const alatSchema = z.object({
-  nama: z.string().min(2, "Nama alat minimal 2 karakter"),
-  kategori_id: z.number().min(1, "Pilih kategori"),
-  stok: z.number().min(0, "Stok tidak boleh negatif"),
-  kondisi: z.string().min(1, "Kondisi harus diisi"),
+  kode_alat: z.string().min(1, "Kode alat wajib diisi"),
+  nama_alat: z.string().min(1, "Nama alat wajib diisi"),
+  kategori_id: z.number().min(1, "Kategori wajib dipilih"),
   deskripsi: z.string().optional(),
+  kondisi: z.enum(["Baik", "Rusak Ringan", "Rusak Berat"]),
+  jumlah_total: z.number().min(1, "Jumlah total minimal 1"),
+  jumlah_tersedia: z.number().min(0, "Jumlah tersedia tidak boleh negatif"),
+  lokasi_penyimpanan: z.string().min(1, "Lokasi penyimpanan wajib diisi"),
+  gambar_url: z.string().url("URL gambar tidak valid").optional(),
 })
+
 
 export const kategoriSchema = z.object({
   nama: z.string().min(2, "Nama kategori minimal 2 karakter"),
@@ -45,11 +50,13 @@ export const pengembalianSchema = z.object({
 })
 
 export const userSchema = z.object({
-  name: z.string().min(2, "Nama minimal 2 karakter"),
+  username: z.string().min(3, "Username minimal 3 karakter"),
+  nama_lengkap: z.string().min(3, "Nama lengkap minimal 3 karakter"),
   email: z.string().email("Email tidak valid"),
   password: z.string().min(6, "Password minimal 6 karakter").optional(),
   role: z.enum(["admin", "petugas", "peminjam"]),
-})
+});
+
 
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>

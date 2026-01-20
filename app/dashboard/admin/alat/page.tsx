@@ -1,12 +1,15 @@
 "use client"
+
 import { useState, useEffect, useCallback } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import toast from "react-hot-toast"
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+
 import { Header } from "@/components/dashboard/header"
 import { DataTable } from "@/components/dashboard/data-table"
 import { Modal } from "@/components/dashboard/modal"
+
 import { alatService } from "@/lib/services/alat-service"
 import { kategoriService } from "@/lib/services/kategori-service"
 import { alatSchema, type AlatFormData } from "@/lib/validations"
@@ -22,21 +25,21 @@ export default function AlatPage() {
   const [editingAlat, setEditingAlat] = useState<Alat | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<AlatFormData>({
-    resolver: zodResolver(alatSchema),
-  })
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<AlatFormData>({
+  resolver: zodResolver(alatSchema),
+})
 
+  /* ================= FETCH ================= */
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [alatRes, kategoriRes] = await Promise.all([alatService.getAll(page), kategoriService.getAll(1, 100)])
+      const [alatRes, kategoriRes] = await Promise.all([
+        alatService.getAll(page),
+        kategoriService.getAll(1, 100),
+      ])
+
       setAlatList(alatRes.data)
-      setTotalPages(alatRes.totalPages)
+      setTotalPages(alatRes.pagination.totalPages)
       setKategoriList(kategoriRes.data)
     } catch (error) {
       toast.error("Gagal memuat data")
@@ -50,43 +53,71 @@ export default function AlatPage() {
     fetchData()
   }, [fetchData])
 
+  /* ================= MODAL ================= */
   const openCreateModal = () => {
     setEditingAlat(null)
-    reset({ nama: "", kategori_id: 0, stok: 0, kondisi: "", deskripsi: "" })
+    reset({
+  kode_alat: "",
+  nama_alat: "",
+  kategori_id: undefined,
+  jumlah_total: 1,
+  jumlah_tersedia: 1,
+  kondisi: "Baik", // sesuaikan casing dengan DB
+  lokasi_penyimpanan: "",
+  deskripsi: "",
+  gambar_url: ""
+})
+
+
+
     setIsModalOpen(true)
   }
 
   const openEditModal = (alat: Alat) => {
-    setEditingAlat(alat)
-    reset({
-      nama: alat.nama,
-      kategori_id: alat.kategori_id,
-      stok: alat.stok,
-      kondisi: alat.kondisi,
-      deskripsi: alat.deskripsi || "",
-    })
-    setIsModalOpen(true)
+  setEditingAlat(alat)
+  reset({
+    kode_alat: alat.kode_alat,
+    nama_alat: alat.nama_alat,
+    kategori_id: alat.kategori_id,
+    jumlah_total: alat.jumlah_total,
+    jumlah_tersedia: alat.jumlah_tersedia,
+    kondisi: alat.kondisi,
+    lokasi_penyimpanan: alat.lokasi_penyimpanan ?? "",
+    deskripsi: alat.deskripsi ?? "",
+    gambar_url: alat.gambar_url ?? "",
+  })
+  setIsModalOpen(true)
+}
+
+  /* ================= SUBMIT ================= */
+  const onSubmit = async (data: AlatFormData) => {
+  console.log("DATA FORM:", data)
+
+  const payload = {
+    ...data,
+    jumlah_tersedia: data.jumlah_total, // ⬅️ INI KUNCI NYAWA
   }
 
-  const onSubmit = async (data: AlatFormData) => {
-    setIsSubmitting(true)
-    try {
-      if (editingAlat) {
-        await alatService.update(editingAlat.id, data)
-        toast.success("Alat berhasil diperbarui")
-      } else {
-        await alatService.create(data)
-        toast.success("Alat berhasil ditambahkan")
-      }
-      setIsModalOpen(false)
-      fetchData()
-    } catch (error) {
-      toast.error("Gagal menyimpan alat")
-      console.error(error)
-    } finally {
-      setIsSubmitting(false)
+  console.log("PAYLOAD KE BACKEND:", payload)
+
+  setIsSubmitting(true)
+  try {
+    if (editingAlat) {
+      await alatService.update(editingAlat.id, payload)
+      toast.success("Alat berhasil diperbarui")
+    } else {
+      await alatService.create(payload)
+      toast.success("Alat berhasil ditambahkan")
     }
+    setIsModalOpen(false)
+    fetchData()
+  } catch (error) {
+    console.error("AXIOS ERROR:", error)
+    toast.error("Gagal menyimpan alat")
+  } finally {
+    setIsSubmitting(false)
   }
+}
 
   const handleDelete = async (id: number) => {
     if (!confirm("Apakah Anda yakin ingin menghapus alat ini?")) return
@@ -100,26 +131,36 @@ export default function AlatPage() {
     }
   }
 
+  /* ================= TABLE ================= */
   const columns = [
     { key: "id", label: "ID" },
-    { key: "nama", label: "Nama Alat" },
+    { key: "kode_alat", label: "Kode Alat" },
+    { key: "nama_alat", label: "Nama Alat" },
     {
       key: "kategori",
       label: "Kategori",
-      render: (alat: Alat) => alat.kategori?.nama || "-",
+      render: (alat: Alat) => alat.kategori?.nama_kategori || "-",
     },
-    { key: "stok", label: "Stok" },
+    { key: "jumlah_total", label: "Jumlah Total" },
+    { key: "jumlah_tersedia", label: "Jumlah Tersedia" },
+    { key: "lokasi_penyimpanan", label: "Lokasi" },
     {
       key: "kondisi",
       label: "Kondisi",
       render: (alat: Alat) => (
         <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-            alat.kondisi === "Baik" ? "bg-primary/20 text-primary glow-primary" : "bg-destructive/20 text-destructive"
-          }`}
-        >
-          {alat.kondisi}
-        </span>
+  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+    alat.kondisi === "Baik"
+      ? "bg-primary/20 text-primary"
+      : "bg-destructive/20 text-destructive"
+  }`}
+>
+  {alat.kondisi
+    .split(" ")
+    .map(w => w[0].toUpperCase() + w.slice(1))
+    .join(" ")}
+</span>
+
       ),
     },
     {
@@ -129,13 +170,13 @@ export default function AlatPage() {
         <div className="flex gap-2">
           <button
             onClick={() => openEditModal(alat)}
-            className="rounded-xl p-2 text-muted-foreground transition-all duration-300 hover:bg-primary/10 hover:text-primary"
+            className="rounded-xl p-2 hover:bg-primary/10 hover:text-primary"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
             onClick={() => handleDelete(alat.id)}
-            className="rounded-xl p-2 text-muted-foreground transition-all duration-300 hover:bg-destructive/10 hover:text-destructive"
+            className="rounded-xl p-2 hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -144,118 +185,166 @@ export default function AlatPage() {
     },
   ]
 
-  return (
-    <>
-      <Header title="Manajemen Alat" />
-      <div className="p-6 animate-fade-in">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Daftar Alat</h2>
-            <p className="mt-1 text-muted-foreground">Kelola inventaris alat</p>
-          </div>
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 rounded-2xl gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:opacity-90 hover:shadow-lg hover:shadow-primary/25 glow-primary"
-          >
-            <Plus className="h-4 w-4" />
-            Tambah Alat
-          </button>
+  /* ================= UI ================= */
+return (
+  <>
+    <Header title="Manajemen Alat" />
+
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Daftar Alat</h2>
+          <p className="text-muted-foreground">Kelola inventaris alat</p>
         </div>
-
-        <DataTable
-          columns={columns}
-          data={alatList}
-          isLoading={isLoading}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title={editingAlat ? "Edit Alat" : "Tambah Alat"}
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <Plus className="h-4 w-4" />
+          Tambah Alat
+        </button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={alatList}
+        isLoading={isLoading}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingAlat ? "Edit Alat" : "Tambah Alat"}
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Kode & Nama Alat */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-card-foreground">Nama Alat</label>
+              <label className="text-sm font-medium">Kode Alat</label>
               <input
-                {...register("nama")}
-                className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
+                {...register("kode_alat")}
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              {errors.nama && <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.nama.message}</p>}
-            </div>
-            <div>
-              <label className="text-sm font-medium text-card-foreground">Kategori</label>
-              <select
-                {...register("kategori_id", { valueAsNumber: true })}
-                className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
-              >
-                <option value={0}>Pilih Kategori</option>
-                {kategoriList.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.nama}
-                  </option>
-                ))}
-              </select>
-              {errors.kategori_id && (
-                <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.kategori_id.message}</p>
+              {errors.kode_alat && (
+                <p className="text-xs text-destructive">{errors.kode_alat.message}</p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-card-foreground">Stok</label>
-                <input
-                  {...register("stok", { valueAsNumber: true })}
-                  type="number"
-                  className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
-                />
-                {errors.stok && <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.stok.message}</p>}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-card-foreground">Kondisi</label>
-                <select
-                  {...register("kondisi")}
-                  className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
-                >
-                  <option value="">Pilih Kondisi</option>
-                  <option value="Baik">Baik</option>
-                  <option value="Rusak Ringan">Rusak Ringan</option>
-                  <option value="Rusak Berat">Rusak Berat</option>
-                </select>
-                {errors.kondisi && (
-                  <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.kondisi.message}</p>
-                )}
-              </div>
+            <div>
+              <label className="text-sm font-medium">Nama Alat</label>
+              <input
+                {...register("nama_alat")}
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {errors.nama_alat && (
+                <p className="text-xs text-destructive">{errors.nama_alat.message}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Kategori */}
+          <div>
+            <label className="text-sm font-medium">Kategori</label>
+            <select
+              {...register("kategori_id", { valueAsNumber: true })}
+              defaultValue={0}
+              className="w-full rounded-lg border-2 border-gray-300 px-3 py-2"
+            >
+              <option value={0} disabled>Pilih Kategori</option>
+              {kategoriList.map((k) => (
+                <option key={k.id} value={k.id}>{k.nama_kategori}</option>
+              ))}
+            </select>
+            {errors.kategori_id && (
+              <p className="text-xs text-destructive">{errors.kategori_id.message}</p>
+            )}
+          </div>
+
+          {/* Jumlah */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Jumlah Total</label>
+              <input
+                type="number"
+                {...register("jumlah_total", { valueAsNumber: true })}
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
             <div>
-              <label className="text-sm font-medium text-card-foreground">Deskripsi</label>
+              <label className="text-sm font-medium">Jumlah Tersedia</label>
+              <input
+                type="number"
+                {...register("jumlah_tersedia", { valueAsNumber: true })}
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {/* Kondisi */}
+          <div>
+            <label className="text-sm font-medium">Kondisi</label>
+            <select
+              {...register("kondisi")}
+              defaultValue="Baik"
+              className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="Baik">Baik</option>
+              <option value="Rusak Ringan">Rusak Ringan</option>
+              <option value="Rusak Berat">Rusak Berat</option>
+            </select>
+          </div>
+
+          {/* Deskripsi & Gambar */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Deskripsi</label>
               <textarea
                 {...register("deskripsi")}
                 rows={3}
-                className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-2xl border border-border/50 px-5 py-3 text-sm font-medium text-muted-foreground transition-all duration-300 hover:bg-secondary hover:text-foreground"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-2 rounded-2xl gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:opacity-90 disabled:opacity-50 glow-primary"
-              >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingAlat ? "Simpan" : "Tambah"}
-              </button>
+            <div>
+              <label className="text-sm font-medium">URL Gambar</label>
+              <input
+                {...register("gambar_url")}
+                className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
-          </form>
-        </Modal>
-      </div>
-    </>
-  )
+          </div>
+
+          {/* Lokasi */}
+          <div>
+            <label className="text-sm font-medium">Lokasi Penyimpanan</label>
+            <input
+              {...register("lokasi_penyimpanan")}
+              className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          {/* ACTION BUTTON */}
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="rounded-lg border-2 border-gray-300 px-4 py-2 text-sm hover:bg-muted"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Simpan
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  </>
+)
 }

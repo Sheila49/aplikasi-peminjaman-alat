@@ -1,14 +1,21 @@
 // User types
 export type UserRole = "admin" | "petugas" | "peminjam"
+export type KondisiAlat = "Baik" | "Rusak Ringan" | "Rusak Berat"
+
 
 export interface User {
   id: number
-  name: string
+  username: string
+  nama_lengkap: string
   email: string
   role: UserRole
+  no_telepon?: string
+  alamat?: string
+  is_active?: boolean
   created_at?: string
   updated_at?: string
 }
+
 
 export interface AuthResponse {
   token: string
@@ -21,16 +28,20 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
-  name: string
+  username: string
+  nama_lengkap: string
   email: string
   password: string
-  role?: UserRole
+  role: UserRole
+  no_telepon?: string
+  alamat?: string
 }
+
 
 // Kategori types
 export interface Kategori {
   id: number
-  nama: string
+  nama_kategori: string
   deskripsi?: string
   created_at?: string
   updated_at?: string
@@ -39,13 +50,19 @@ export interface Kategori {
 // Alat types
 export interface Alat {
   id: number
-  nama: string
+  kode_alat: string
+  nama_alat: string
   kategori_id: number
-  kategori?: Kategori
-  stok: number
-  kondisi: string
+  jumlah_total: number
+  jumlah_tersedia: number
+  kondisi: KondisiAlat
+  lokasi_penyimpanan?: string
   deskripsi?: string
-  gambar?: string
+  gambar_url?: string
+  kategori?: {
+    id: number
+    nama_kategori: string
+  }
   created_at?: string
   updated_at?: string
 }
