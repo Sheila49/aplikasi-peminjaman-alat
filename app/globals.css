@@ -1,0 +1,219 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Complete redesign with glassmorphism dark theme - purple/blue neon accents */
+:root {
+  /* Deep black/charcoal backgrounds */
+  --background: oklch(0.08 0.01 270);
+  --foreground: oklch(0.95 0.01 270);
+
+  /* Glassmorphism surfaces */
+  --card: oklch(0.12 0.015 270 / 0.6);
+  --card-foreground: oklch(0.95 0.01 270);
+  --popover: oklch(0.12 0.015 270 / 0.8);
+  --popover-foreground: oklch(0.95 0.01 270);
+
+  /* Purple/Blue gradient primary */
+  --primary: oklch(0.65 0.25 280);
+  --primary-foreground: oklch(0.98 0.01 270);
+
+  /* Secondary - dark glass */
+  --secondary: oklch(0.18 0.02 270 / 0.5);
+  --secondary-foreground: oklch(0.9 0.01 270);
+
+  /* Muted */
+  --muted: oklch(0.15 0.015 270);
+  --muted-foreground: oklch(0.6 0.01 270);
+
+  /* Accent - magenta */
+  --accent: oklch(0.6 0.22 320);
+  --accent-foreground: oklch(0.98 0.01 270);
+
+  /* Destructive - muted red */
+  --destructive: oklch(0.55 0.2 15);
+  --destructive-foreground: oklch(0.98 0.01 270);
+
+  /* Borders - subtle low-opacity white */
+  --border: oklch(0.4 0.01 270 / 0.15);
+  --input: oklch(0.15 0.015 270);
+  --ring: oklch(0.65 0.25 280);
+
+  /* Charts */
+  --chart-1: oklch(0.65 0.25 280);
+  --chart-2: oklch(0.6 0.22 320);
+  --chart-3: oklch(0.6 0.2 220);
+  --chart-4: oklch(0.65 0.2 180);
+  --chart-5: oklch(0.55 0.2 15);
+
+  --radius: 1rem;
+
+  /* Sidebar - dark glass */
+  --sidebar: oklch(0.1 0.015 270 / 0.8);
+  --sidebar-foreground: oklch(0.95 0.01 270);
+  --sidebar-primary: oklch(0.65 0.25 280);
+  --sidebar-primary-foreground: oklch(0.98 0.01 270);
+  --sidebar-accent: oklch(0.2 0.02 270 / 0.5);
+  --sidebar-accent-foreground: oklch(0.95 0.01 270);
+  --sidebar-border: oklch(0.4 0.01 270 / 0.1);
+  --sidebar-ring: oklch(0.65 0.25 280);
+}
+
+.dark {
+  --background: oklch(0.08 0.01 270);
+  --foreground: oklch(0.95 0.01 270);
+  --card: oklch(0.12 0.015 270 / 0.6);
+  --card-foreground: oklch(0.95 0.01 270);
+  --popover: oklch(0.12 0.015 270 / 0.8);
+  --popover-foreground: oklch(0.95 0.01 270);
+  --primary: oklch(0.65 0.25 280);
+  --primary-foreground: oklch(0.98 0.01 270);
+  --secondary: oklch(0.18 0.02 270 / 0.5);
+  --secondary-foreground: oklch(0.9 0.01 270);
+  --muted: oklch(0.15 0.015 270);
+  --muted-foreground: oklch(0.6 0.01 270);
+  --accent: oklch(0.6 0.22 320);
+  --accent-foreground: oklch(0.98 0.01 270);
+  --destructive: oklch(0.55 0.2 15);
+  --destructive-foreground: oklch(0.98 0.01 270);
+  --border: oklch(0.4 0.01 270 / 0.15);
+  --input: oklch(0.15 0.015 270);
+  --ring: oklch(0.65 0.25 280);
+  --chart-1: oklch(0.65 0.25 280);
+  --chart-2: oklch(0.6 0.22 320);
+  --chart-3: oklch(0.6 0.2 220);
+  --chart-4: oklch(0.65 0.2 180);
+  --chart-5: oklch(0.55 0.2 15);
+  --sidebar: oklch(0.1 0.015 270 / 0.8);
+  --sidebar-foreground: oklch(0.95 0.01 270);
+  --sidebar-primary: oklch(0.65 0.25 280);
+  --sidebar-primary-foreground: oklch(0.98 0.01 270);
+  --sidebar-accent: oklch(0.2 0.02 270 / 0.5);
+  --sidebar-accent-foreground: oklch(0.95 0.01 270);
+  --sidebar-border: oklch(0.4 0.01 270 / 0.1);
+  --sidebar-ring: oklch(0.65 0.25 280);
+}
+
+@theme inline {
+  --font-sans: "Inter", "Inter Fallback", sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes for glassmorphism and glow effects */
+@layer utilities {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-card/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px oklch(0.65 0.25 280 / 0.3), 0 0 40px oklch(0.65 0.25 280 / 0.1);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px oklch(0.6 0.22 320 / 0.3), 0 0 40px oklch(0.6 0.22 320 / 0.1);
+  }
+
+  .glow-destructive {
+    box-shadow: 0 0 15px oklch(0.55 0.2 15 / 0.3);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, oklch(0.65 0.25 280) 0%, oklch(0.55 0.22 240) 100%);
+  }
+
+  .gradient-accent {
+    background: linear-gradient(135deg, oklch(0.65 0.25 280) 0%, oklch(0.6 0.22 320) 100%);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-glow-pulse {
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px oklch(0.65 0.25 280 / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px oklch(0.65 0.25 280 / 0.5);
+  }
+}
