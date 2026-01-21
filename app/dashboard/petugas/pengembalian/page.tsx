@@ -17,7 +17,7 @@ export default function PetugasPengembalianPage() {
     try {
       const res = await pengembalianService.getAll(page)
       setPengembalianList(res.data)
-      setTotalPages(res.totalPages)
+      setTotalPages(res.pagination.totalPages)
     } catch (error) {
       toast.error("Gagal memuat data pengembalian")
       console.error(error)

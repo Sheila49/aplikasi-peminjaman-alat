@@ -35,7 +35,7 @@ export default function PeminjamPengembalianPage() {
     setIsLoading(true)
     try {
       const res = await peminjamanService.getByUser(user.id, 1, 100)
-      setApprovedPeminjaman(res.data.filter((p) => p.status === "approved"))
+      setApprovedPeminjaman(res.data.filter((p) => p.status === "disetujui"))
     } catch (error) {
       toast.error("Gagal memuat data")
       console.error(error)
@@ -60,22 +60,41 @@ export default function PeminjamPengembalianPage() {
   }
 
   const onSubmit = async (data: PengembalianFormData) => {
-    setIsSubmitting(true)
-    try {
-      await pengembalianService.create({
-        ...data,
-        tanggal_kembali_aktual: new Date().toISOString(),
-      })
-      toast.success("Pengembalian berhasil!")
-      setIsModalOpen(false)
-      fetchData()
-    } catch (error) {
-      toast.error("Gagal melakukan pengembalian")
-      console.error(error)
-    } finally {
-      setIsSubmitting(false)
+  if (!user?.id) return
+  setIsSubmitting(true)
+  try {
+    const sekarang = new Date()
+    const batasKembali = new Date(selectedPeminjaman?.tanggal_kembali ?? "")
+    const keterlambatanHari = Math.max(
+      0,
+      Math.ceil((sekarang.getTime() - batasKembali.getTime()) / (1000 * 60 * 60 * 24))
+    )
+    const denda = keterlambatanHari * 5000
+
+    const payload = {
+      peminjaman_id: Number(data.peminjaman_id),
+      tanggal_kembali_aktual: sekarang.toISOString(), // atau .split("T")[0] kalau backend minta date
+      kondisi_alat: data.kondisi_alat,
+      jumlah_dikembalikan: Number(selectedPeminjaman?.jumlah ?? 1),
+      keterlambatan_hari: keterlambatanHari,
+      denda,
+      catatan: data.catatan || "",
+      diterima_oleh: Number(user.id),
     }
+
+    console.log("Payload pengembalian:", JSON.stringify(payload, null, 2))
+
+    await pengembalianService.create(payload)
+    toast.success("Pengembalian berhasil!")
+    setIsModalOpen(false)
+    fetchData()
+  } catch (error) {
+    toast.error("Gagal melakukan pengembalian")
+    console.error(error)
+  } finally {
+    setIsSubmitting(false)
   }
+}
 
   return (
     <>
@@ -112,7 +131,7 @@ export default function PeminjamPengembalianPage() {
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl gradient-accent glow-accent">
                     <Package className="h-6 w-6 text-primary-foreground" />
                   </div>
-                  <h3 className="mb-1 text-lg font-bold text-card-foreground">{peminjaman.alat?.nama}</h3>
+                  <h3 className="mb-1 text-lg font-bold text-card-foreground">{peminjaman.alat?.nama_alat}</h3>
                   <p className="mb-4 text-sm text-muted-foreground">Jumlah: {peminjaman.jumlah}</p>
                   <div className="mb-5 space-y-2 text-sm">
                     <p className="flex items-center gap-2 text-muted-foreground">
@@ -151,7 +170,7 @@ export default function PeminjamPengembalianPage() {
                   <Package className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">{selectedPeminjaman?.alat?.nama}</p>
+                  <p className="font-semibold text-foreground">{selectedPeminjaman?.alat?.nama_alat}</p>
                   <p className="text-xs text-muted-foreground">Jumlah: {selectedPeminjaman?.jumlah}</p>
                 </div>
               </div>

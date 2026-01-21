@@ -3,7 +3,7 @@ import { useState } from "react"
 import toast from "react-hot-toast"
 import { FileBarChart, Download, Loader2, Calendar } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
-import { reportService } from "@/lib/services/report-service"
+import { laporanService } from "@/lib/services/report-service"
 
 export default function LaporanPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -11,24 +11,32 @@ export default function LaporanPage() {
   const [endDate, setEndDate] = useState("")
 
   const handleDownload = async () => {
-    setIsLoading(true)
-    try {
-      const blob = await reportService.getPeminjamanReport(startDate, endDate)
-      const url = window.URL.createObjectURL(new Blob([blob]))
-      const link = document.createElement("a")
-      link.href = url
-      link.setAttribute("download", `laporan-peminjaman-${new Date().toISOString().split("T")[0]}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      toast.success("Laporan berhasil diunduh")
-    } catch (error) {
-      toast.error("Gagal mengunduh laporan")
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
+  setIsLoading(true)
+  try {
+    const blob = await laporanService.getPeminjamanReport(startDate, endDate)
+
+    // buat URL dari blob
+    const url = window.URL.createObjectURL(blob)
+
+    // buat link download
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `laporan-peminjaman-${new Date().toISOString().split("T")[0]}.pdf`
+    document.body.appendChild(link)
+    link.click()
+
+    // bersihkan
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    toast.success("Laporan berhasil diunduh")
+  } catch (error) {
+    toast.error("Gagal mengunduh laporan")
+    console.error(error)
+  } finally {
+    setIsLoading(false)
   }
+}
 
   return (
     <>

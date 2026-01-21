@@ -17,7 +17,15 @@ export default function LogsPage() {
     try {
       const res = await logService.getAll(page)
       setLogs(res.data)
-      setTotalPages(res.totalPages)
+
+      // aman: cek pagination
+      if (res.pagination && typeof res.pagination.totalPages === "number") {
+        setTotalPages(res.pagination.totalPages)
+      } else if ((res as any).totalPages) {
+        setTotalPages((res as any).totalPages)
+      } else {
+        setTotalPages(1)
+      }
     } catch (error) {
       toast.error("Gagal memuat log aktivitas")
       console.error(error)
@@ -32,15 +40,16 @@ export default function LogsPage() {
 
   const columns = [
     { key: "id", label: "ID" },
-    { key: "user", label: "User", render: (log: LogAktivitas) => log.user?.name || "-" },
+    { key: "user", label: "User", render: (log: LogAktivitas) => log.user?.nama_lengkap || "-" }, // ✅ perbaikan
     { key: "aksi", label: "Aksi" },
     { key: "tabel", label: "Tabel" },
-    { key: "data_id", label: "Data ID" },
+    { key: "data_id", label: "Data ID" }, // kalau backend pakai record_id, ganti sesuai
     { key: "keterangan", label: "Keterangan", render: (log: LogAktivitas) => log.keterangan || "-" },
     {
       key: "created_at",
       label: "Waktu",
-      render: (log: LogAktivitas) => (log.created_at ? new Date(log.created_at).toLocaleString("id-ID") : "-"),
+      render: (log: LogAktivitas) =>
+        log.created_at ? new Date(log.created_at).toLocaleString("id-ID") : "-",
     },
   ]
 

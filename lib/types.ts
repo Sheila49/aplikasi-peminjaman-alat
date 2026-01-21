@@ -1,7 +1,8 @@
-// User types
+// =======================
+// User & Auth Types
+// =======================
 export type UserRole = "admin" | "petugas" | "peminjam"
 export type KondisiAlat = "Baik" | "Rusak Ringan" | "Rusak Berat"
-
 
 export interface User {
   id: number
@@ -15,7 +16,6 @@ export interface User {
   created_at?: string
   updated_at?: string
 }
-
 
 export interface AuthResponse {
   token: string
@@ -37,8 +37,9 @@ export interface RegisterData {
   alamat?: string
 }
 
-
-// Kategori types
+// =======================
+// Kategori Types
+// =======================
 export interface Kategori {
   id: number
   nama_kategori: string
@@ -47,7 +48,9 @@ export interface Kategori {
   updated_at?: string
 }
 
-// Alat types
+// =======================
+// Alat / Aset Types
+// =======================
 export interface Alat {
   id: number
   kode_alat: string
@@ -67,8 +70,10 @@ export interface Alat {
   updated_at?: string
 }
 
-// Peminjaman types
-export type StatusPeminjaman = "pending" | "approved" | "rejected" | "returned"
+// =======================
+// Peminjaman Types
+// =======================
+export type StatusPeminjaman = "diajukan" | "disetujui" | "dikembalikan" | "ditolak"
 
 export interface Peminjaman {
   id: number
@@ -85,31 +90,43 @@ export interface Peminjaman {
   updated_at?: string
 }
 
-// Pengembalian types
+// =======================
+// Pengembalian Types
+// =======================
 export interface Pengembalian {
   id: number
   peminjaman_id: number
   peminjaman?: Peminjaman
   tanggal_kembali_aktual: string
   kondisi_alat: string
+  jumlah_dikembalikan?: number
+  keterlambatan_hari?: number
+  denda?: number
   catatan?: string
+  diterima_oleh?: number
   created_at?: string
   updated_at?: string
 }
 
-// Log Aktivitas types
+// =======================
+// Log Aktivitas Types
+// =======================
 export interface LogAktivitas {
   id: number
   user_id: number
   user?: User
   aksi: string
   tabel: string
-  data_id: number
-  keterangan?: string
+  data_id: number // bisa dianggap record_id
+  keterangan?: string // bisa dianggap detail
+  ip_address?: string
+  user_agent?: string
   created_at?: string
 }
 
-// API Response types
+// =======================
+// API Response Types
+// =======================
 export interface ApiResponse<T> {
   data: T
   message?: string

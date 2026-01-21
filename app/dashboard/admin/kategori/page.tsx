@@ -29,19 +29,29 @@ export default function KategoriPage() {
     resolver: zodResolver(kategoriSchema),
   })
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const res = await kategoriService.getAll(page)
-      setKategoriList(res.data)
-      setTotalPages(res.totalPages)
-    } catch (error) {
-      toast.error("Gagal memuat data kategori")
-      console.error(error)
-    } finally {
-      setIsLoading(false)
+const fetchData = useCallback(async () => {
+  setIsLoading(true)
+  try {
+    const res = await kategoriService.getAll(page)
+    setKategoriList(res.data)
+
+    // cek apakah ada pagination
+    if (res.pagination && typeof res.pagination.totalPages === "number") {
+      setTotalPages(res.pagination.totalPages)
+    } else if ((res as any).totalPages) {
+      // fallback kalau backend kirim totalPages langsung
+      setTotalPages((res as any).totalPages)
+    } else {
+      // default kalau tidak ada info totalPages
+      setTotalPages(1)
     }
-  }, [page])
+  } catch (error) {
+    toast.error("Gagal memuat data kategori")
+    console.error(error)
+  } finally {
+    setIsLoading(false)
+  }
+}, [page])
 
   useEffect(() => {
     fetchData()
@@ -49,13 +59,16 @@ export default function KategoriPage() {
 
   const openCreateModal = () => {
     setEditingKategori(null)
-    reset({ nama: "", deskripsi: "" })
+    reset({ nama_kategori: "", deskripsi: "" }) // ✅ perbaikan
     setIsModalOpen(true)
   }
 
   const openEditModal = (kategori: Kategori) => {
     setEditingKategori(kategori)
-    reset({ nama: kategori.nama, deskripsi: kategori.deskripsi || "" })
+    reset({
+      nama_kategori: kategori.nama_kategori, // ✅ perbaikan
+      deskripsi: kategori.deskripsi || "",
+    })
     setIsModalOpen(true)
   }
 
@@ -93,8 +106,12 @@ export default function KategoriPage() {
 
   const columns = [
     { key: "id", label: "ID" },
-    { key: "nama", label: "Nama Kategori" },
-    { key: "deskripsi", label: "Deskripsi", render: (k: Kategori) => k.deskripsi || "-" },
+    { key: "nama_kategori", label: "Nama Kategori" }, // ✅ perbaikan
+    {
+      key: "deskripsi",
+      label: "Deskripsi",
+      render: (k: Kategori) => k.deskripsi || "-",
+    },
     {
       key: "actions",
       label: "Aksi",
@@ -151,15 +168,23 @@ export default function KategoriPage() {
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="text-sm font-medium text-card-foreground">Nama Kategori</label>
+              <label className="text-sm font-medium text-card-foreground">
+                Nama Kategori
+              </label>
               <input
-                {...register("nama")}
+                {...register("nama_kategori")} // ✅ perbaikan
                 className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
               />
-              {errors.nama && <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.nama.message}</p>}
+              {errors.nama_kategori && (
+                <p className="mt-2 text-xs text-destructive animate-fade-in">
+                  {errors.nama_kategori.message}
+                </p>
+              )}
             </div>
             <div>
-              <label className="text-sm font-medium text-card-foreground">Deskripsi</label>
+              <label className="text-sm font-medium text-card-foreground">
+                Deskripsi
+              </label>
               <textarea
                 {...register("deskripsi")}
                 rows={3}

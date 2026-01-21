@@ -18,7 +18,7 @@ export default function PetugasPeminjamanPage() {
     try {
       const res = await peminjamanService.getAll(page)
       setPeminjamanList(res.data)
-      setTotalPages(res.totalPages)
+      setTotalPages(res.pagination.totalPages)
     } catch (error) {
       toast.error("Gagal memuat data peminjaman")
       console.error(error)
@@ -71,8 +71,8 @@ export default function PetugasPeminjamanPage() {
 
   const columns = [
     { key: "id", label: "ID" },
-    { key: "user", label: "Peminjam", render: (p: Peminjaman) => p.user?.name || "-" },
-    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama || "-" },
+    { key: "user", label: "Peminjam", render: (p: Peminjaman) => p.user?.nama_lengkap || "-" },
+    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama_alat || "-" },
     { key: "jumlah", label: "Jumlah" },
     {
       key: "tanggal_pinjam",
@@ -89,7 +89,7 @@ export default function PetugasPeminjamanPage() {
       key: "actions",
       label: "Aksi",
       render: (p: Peminjaman) =>
-        p.status === "pending" ? (
+        p.status === "diajukan" ? (
           <div className="flex gap-1">
             <button
               onClick={() => handleApprove(p.id)}

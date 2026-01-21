@@ -26,12 +26,15 @@ export const alatSchema = z.object({
   jumlah_total: z.number().min(1, "Jumlah total minimal 1"),
   jumlah_tersedia: z.number().min(0, "Jumlah tersedia tidak boleh negatif"),
   lokasi_penyimpanan: z.string().min(1, "Lokasi penyimpanan wajib diisi"),
-  gambar_url: z.string().url("URL gambar tidak valid").optional(),
+  gambar_url: z
+  .string()
+  .url("URL gambar tidak valid")
+  .optional()
+  .or(z.literal(""))
 })
 
-
 export const kategoriSchema = z.object({
-  nama: z.string().min(2, "Nama kategori minimal 2 karakter"),
+  nama_kategori: z.string().min(2, "Nama kategori minimal 2 karakter"), // ✅ perbaikan
   deskripsi: z.string().optional(),
 })
 
@@ -55,13 +58,12 @@ export const userSchema = z.object({
   email: z.string().email("Email tidak valid"),
   password: z.string().min(6, "Password minimal 6 karakter").optional(),
   role: z.enum(["admin", "petugas", "peminjam"]),
-});
-
+})
 
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>
 export type AlatFormData = z.infer<typeof alatSchema>
-export type KategoriFormData = z.infer<typeof kategoriSchema>
+export type KategoriFormData = z.infer<typeof kategoriSchema> // ✅ sekarang punya nama_kategori
 export type PeminjamanFormData = z.infer<typeof peminjamanSchema>
 export type PengembalianFormData = z.infer<typeof pengembalianSchema>
 export type UserFormData = z.infer<typeof userSchema>

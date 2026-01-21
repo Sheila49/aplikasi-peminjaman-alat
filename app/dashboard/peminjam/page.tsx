@@ -21,12 +21,13 @@ export default function PeminjamDashboard() {
       if (!user?.id) return
       try {
         const res = await peminjamanService.getByUser(user.id, 1, 100)
-        const pending = res.data.filter((p) => p.status === "pending").length
-        const approved = res.data.filter((p) => p.status === "approved").length
-        const returned = res.data.filter((p) => p.status === "returned").length
+
+        const pending = res.data.filter((p) => p.status === "diajukan").length
+        const approved = res.data.filter((p) => p.status === "disetujui").length
+        const returned = res.data.filter((p) => p.status === "dikembalikan").length
 
         setStats({
-          total: res.total,
+          total: res.pagination.total, // ✅ ambil dari pagination
           pending,
           approved,
           returned,
@@ -45,8 +46,12 @@ export default function PeminjamDashboard() {
       <Header title="Dashboard Peminjam" />
       <div className="p-6">
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-foreground">Selamat datang, {user?.name}!</h2>
-          <p className="text-sm text-muted-foreground">Ringkasan aktivitas peminjaman Anda</p>
+          <h2 className="text-lg font-semibold text-foreground">
+            Selamat datang, {user?.nama_lengkap}!
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Ringkasan aktivitas peminjaman Anda
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

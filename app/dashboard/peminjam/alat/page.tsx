@@ -34,7 +34,7 @@ export default function PeminjamAlatPage() {
     setIsLoading(true)
     try {
       const res = await alatService.getAll(1, 100)
-      setAlatList(res.data.filter((a) => a.stok > 0))
+      setAlatList(res.data.filter((a) => a.jumlah_tersedia > 0))
     } catch (error) {
       toast.error("Gagal memuat data alat")
       console.error(error)
@@ -67,7 +67,7 @@ export default function PeminjamAlatPage() {
       await peminjamanService.create({
         ...data,
         user_id: user.id,
-        status: "pending",
+        status: "diajukan",
       })
       toast.success("Pengajuan peminjaman berhasil!")
       setIsModalOpen(false)
@@ -110,17 +110,17 @@ export default function PeminjamAlatPage() {
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Gradient overlay on hover */}
-                <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-br from-primary/5 to-transparent" />
+                <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-linear-to-br from-primary/5 to-transparent" />
 
                 <div className="relative">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary glow-primary transition-transform duration-300 group-hover:scale-110">
                     <Package className="h-7 w-7 text-primary-foreground" />
                   </div>
-                  <h3 className="mb-1 text-lg font-bold text-card-foreground">{alat.nama}</h3>
-                  <p className="mb-3 text-sm text-muted-foreground">{alat.kategori?.nama || "Tanpa Kategori"}</p>
+                  <h3 className="mb-1 text-lg font-bold text-card-foreground">{alat.nama_alat}</h3>
+                  <p className="mb-3 text-sm text-muted-foreground">{alat.kategori?.nama_kategori || "Tanpa Kategori"}</p>
                   <div className="mb-5 flex items-center gap-4 text-sm">
                     <span className="text-muted-foreground">
-                      Stok: <span className="font-semibold text-card-foreground">{alat.stok}</span>
+                      Stok: <span className="font-semibold text-card-foreground">{alat.jumlah_tersedia}</span>
                     </span>
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -151,8 +151,8 @@ export default function PeminjamAlatPage() {
                   <Sparkles className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">{selectedAlat?.nama}</p>
-                  <p className="text-xs text-muted-foreground">Stok tersedia: {selectedAlat?.stok}</p>
+                  <p className="font-semibold text-foreground">{selectedAlat?.nama_alat}</p>
+                  <p className="text-xs text-muted-foreground">Stok tersedia: {selectedAlat?.jumlah_tersedia}</p>
                 </div>
               </div>
             </div>
@@ -165,7 +165,7 @@ export default function PeminjamAlatPage() {
                 {...register("jumlah", { valueAsNumber: true })}
                 type="number"
                 min={1}
-                max={selectedAlat?.stok || 1}
+                max={selectedAlat?.jumlah_tersedia || 1}
                 className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
               />
               {errors.jumlah && (
@@ -179,6 +179,7 @@ export default function PeminjamAlatPage() {
                 <input
                   {...register("tanggal_pinjam")}
                   type="date"
+                  defaultValue={new Date().toISOString().split("T")[0]} // ✅ default hari ini
                   className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
                 />
                 {errors.tanggal_pinjam && (

@@ -22,6 +22,7 @@ export const peminjamanService = {
   },
 
   create: async (data: Partial<Peminjaman>): Promise<Peminjaman> => {
+    console.log("Payload dikirim:", data) // debug
     const response = await api.post<ApiResponse<Peminjaman>>("/peminjaman", data)
     return response.data.data
   },

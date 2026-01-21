@@ -20,7 +20,7 @@ export default function PeminjamPeminjamanPage() {
     try {
       const res = await peminjamanService.getByUser(user.id, page)
       setPeminjamanList(res.data)
-      setTotalPages(res.totalPages)
+      setTotalPages(res.pagination.totalPages)
     } catch (error) {
       toast.error("Gagal memuat data peminjaman")
       console.error(error)
@@ -57,7 +57,7 @@ export default function PeminjamPeminjamanPage() {
 
   const columns = [
     { key: "id", label: "ID" },
-    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama || "-" },
+    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama_alat || "-" },
     { key: "jumlah", label: "Jumlah" },
     {
       key: "tanggal_pinjam",

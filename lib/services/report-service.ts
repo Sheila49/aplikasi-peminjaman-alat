@@ -1,10 +1,10 @@
 import api from "@/lib/api"
 
-export const reportService = {
+export const laporanService = {
   getPeminjamanReport: async (startDate?: string, endDate?: string) => {
-    const response = await api.get("/reports", {
+    const response = await api.get("/laporan/peminjaman/pdf", {
       params: { startDate, endDate },
-      responseType: "blob",
+      responseType: "blob", // untuk download file
     })
     return response.data
   },

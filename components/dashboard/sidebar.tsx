@@ -121,10 +121,10 @@ export function Sidebar({ role }: SidebarProps) {
         <div className="mb-3 rounded-xl glass p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent text-sm font-bold text-primary-foreground">
-              {user?.name?.charAt(0).toUpperCase()}
+              {user?.nama_lengkap?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.name}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.nama_lengkap}</p>
               <p className="truncate text-xs text-sidebar-foreground/60">{user?.email}</p>
             </div>
           </div>

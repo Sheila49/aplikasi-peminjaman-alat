@@ -5,7 +5,7 @@ import { Trash2, CheckCircle, XCircle } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { DataTable } from "@/components/dashboard/data-table"
 import { peminjamanService } from "@/lib/services/peminjaman-service"
-import type { Peminjaman } from "@/lib/types"
+import type { Peminjaman, StatusPeminjaman } from "@/lib/types"
 
 export default function PeminjamanPage() {
   const [peminjamanList, setPeminjamanList] = useState<Peminjaman[]>([])
@@ -13,12 +13,19 @@ export default function PeminjamanPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
+  const statusLabel: Record<StatusPeminjaman, string> = {
+  diajukan: "Menunggu Persetujuan",
+  disetujui: "Sedang Dipinjam",
+  dikembalikan: "Sudah Dikembalikan",
+  ditolak: "Ditolak",
+}
+
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
       const res = await peminjamanService.getAll(page)
       setPeminjamanList(res.data)
-      setTotalPages(res.totalPages)
+      setTotalPages(res.pagination.totalPages)
     } catch (error) {
       toast.error("Gagal memuat data peminjaman")
       console.error(error)
@@ -67,10 +74,10 @@ export default function PeminjamanPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      pending: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
-      approved: "bg-primary/20 text-primary border border-primary/30",
-      rejected: "bg-destructive/20 text-destructive border border-destructive/30",
-      returned: "bg-accent/20 text-accent border border-accent/30",
+      diajukan: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+      disetujui: "bg-primary/20 text-primary border border-primary/30",
+      ditolak: "bg-destructive/20 text-destructive border border-destructive/30",
+      dikembalikan: "bg-accent/20 text-accent border border-accent/30",
     }
     return (
       <span
@@ -83,8 +90,8 @@ export default function PeminjamanPage() {
 
   const columns = [
     { key: "id", label: "ID" },
-    { key: "user", label: "Peminjam", render: (p: Peminjaman) => p.user?.name || "-" },
-    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama || "-" },
+    { key: "user", label: "Peminjam", render: (p: Peminjaman) => p.user?.nama_lengkap || "-" },
+    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama_alat || "-" },
     { key: "jumlah", label: "Jumlah" },
     {
       key: "tanggal_pinjam",
@@ -102,7 +109,7 @@ export default function PeminjamanPage() {
       label: "Aksi",
       render: (p: Peminjaman) => (
         <div className="flex gap-1">
-          {p.status === "pending" && (
+          {p.status === "diajukan" && (
             <>
               <button
                 onClick={() => handleApprove(p.id)}

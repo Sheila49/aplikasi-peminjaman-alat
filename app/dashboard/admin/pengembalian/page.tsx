@@ -13,23 +13,29 @@ export default function PengembalianPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const res = await pengembalianService.getAll(page)
-      setPengembalianList(res.data)
-      setTotalPages(res.totalPages)
-    } catch (error) {
-      toast.error("Gagal memuat data pengembalian")
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [page])
+const fetchData = useCallback(async () => {
+  setIsLoading(true)
+  try {
+    const res = await pengembalianService.getAll(page)
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (!res.data || res.data.length === 0) {
+      console.log("Belum ada data pengembalian")
+      toast("Belum ada data pengembalian", {
+        style: { background: "#3b82f6", color: "#fff" }, // biru ala "info"
+      })
+      setPengembalianList([]) // pastikan state kosong
+      setTotalPages(1)
+    } else {
+      setPengembalianList(res.data)
+      setTotalPages(res.pagination.totalPages)
+    }
+  } catch (error) {
+    toast.error("Gagal memuat data pengembalian")
+    console.error(error)
+  } finally {
+    setIsLoading(false)
+  }
+}, [page])
 
   const handleDelete = async (id: number) => {
     if (!confirm("Apakah Anda yakin ingin menghapus pengembalian ini?")) return
