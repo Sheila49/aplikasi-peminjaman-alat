@@ -23,15 +23,15 @@ export default function PetugasDashboard() {
           pengembalianService.getAll(1, 1),
         ])
 
-        const pending = peminjamanRes.data.filter((p) => p.status === "pending").length
-        const approved = peminjamanRes.data.filter((p) => p.status === "approved").length
+        const diajukan = peminjamanRes.data.filter((p) => p.status === "diajukan").length
+const disetujui = peminjamanRes.data.filter((p) => p.status === "disetujui").length
 
         setStats({
-          totalPeminjaman: peminjamanRes.total,
-          pendingPeminjaman: pending,
-          approvedPeminjaman: approved,
-          totalPengembalian: pengembalianRes.total,
-        })
+  totalPeminjaman: peminjamanRes.pagination.total,
+  pendingPeminjaman: diajukan,
+  approvedPeminjaman: disetujui,
+  totalPengembalian: pengembalianRes.pagination.total,
+})
       } catch (error) {
         console.error("Failed to fetch stats:", error)
       } finally {

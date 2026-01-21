@@ -40,7 +40,7 @@ export const kategoriSchema = z.object({
 
 export const peminjamanSchema = z.object({
   alat_id: z.number().min(1, "Pilih alat"),
-  jumlah: z.number().min(1, "Jumlah minimal 1"),
+  jumlah_pinjam: z.number().min(1, "Jumlah minimal 1"),
   tanggal_pinjam: z.string().min(1, "Tanggal pinjam harus diisi"),
   tanggal_kembali: z.string().min(1, "Tanggal kembali harus diisi"),
   catatan: z.string().optional(),
@@ -49,6 +49,7 @@ export const peminjamanSchema = z.object({
 export const pengembalianSchema = z.object({
   peminjaman_id: z.number().min(1, "Pilih peminjaman"),
   kondisi_alat: z.string().min(1, "Kondisi alat harus diisi"),
+  jumlah_dikembalikan: z.number().min(1, "Minimal 1").max(10, "Maksimal sesuai jumlah pinjam"),
   catatan: z.string().optional(),
 })
 

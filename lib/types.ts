@@ -3,6 +3,7 @@
 // =======================
 export type UserRole = "admin" | "petugas" | "peminjam"
 export type KondisiAlat = "Baik" | "Rusak Ringan" | "Rusak Berat"
+export type StatusPeminjaman = "diajukan" | "disetujui" | "ditolak" | "dipinjam" | "dikembalikan"
 
 export interface User {
   id: number
@@ -73,22 +74,29 @@ export interface Alat {
 // =======================
 // Peminjaman Types
 // =======================
-export type StatusPeminjaman = "diajukan" | "disetujui" | "dikembalikan" | "ditolak"
 
 export interface Peminjaman {
   id: number
+  kode_peminjaman: string
   user_id: number
-  user?: User
+  peminjam?: User        // relasi ke user peminjam
   alat_id: number
-  alat?: Alat
-  jumlah: number
-  tanggal_pinjam: string
-  tanggal_kembali: string
+  alat?: Alat            // relasi ke alat
+  jumlah_pinjam: number
+  tanggal_pengajuan?: string
+  tanggal_pinjam?: string
+  tanggal_kembali_rencana: string
+  keperluan?: string
   status: StatusPeminjaman
+  disetujui_oleh?: number
+  penyetuju?: User       // relasi ke user penyetuju
+  tanggal_persetujuan?: string
+  catatan_persetujuan?: string
   catatan?: string
   created_at?: string
   updated_at?: string
 }
+
 
 // =======================
 // Pengembalian Types

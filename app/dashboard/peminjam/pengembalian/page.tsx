@@ -7,10 +7,10 @@ import { RotateCcw, Loader2, Calendar, Package } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { Modal } from "@/components/dashboard/modal"
 import { peminjamanService } from "@/lib/services/peminjaman-service"
-import { pengembalianService } from "@/lib/services/pengembalian-service"
 import { pengembalianSchema, type PengembalianFormData } from "@/lib/validations"
 import { useAuthStore } from "@/store/auth-store"
 import type { Peminjaman } from "@/lib/types"
+import axios from "axios"
 
 export default function PeminjamPengembalianPage() {
   const { user } = useAuthStore()
@@ -24,7 +24,6 @@ export default function PeminjamPengembalianPage() {
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = useForm<PengembalianFormData>({
     resolver: zodResolver(pengembalianSchema),
@@ -35,7 +34,8 @@ export default function PeminjamPengembalianPage() {
     setIsLoading(true)
     try {
       const res = await peminjamanService.getByUser(user.id, 1, 100)
-      setApprovedPeminjaman(res.data.filter((p) => p.status === "disetujui"))
+      const filtered = res.data.filter((p) => p.status === "disetujui")
+      setApprovedPeminjaman(filtered)
     } catch (error) {
       toast.error("Gagal memuat data")
       console.error(error)
@@ -50,51 +50,113 @@ export default function PeminjamPengembalianPage() {
 
   const openReturnModal = (peminjaman: Peminjaman) => {
     setSelectedPeminjaman(peminjaman)
-    setValue("peminjaman_id", peminjaman.id)
     reset({
       peminjaman_id: peminjaman.id,
       kondisi_alat: "",
+      jumlah_dikembalikan: 1,
       catatan: "",
     })
     setIsModalOpen(true)
   }
 
   const onSubmit = async (data: PengembalianFormData) => {
-  if (!user?.id) return
-  setIsSubmitting(true)
-  try {
-    const sekarang = new Date()
-    const batasKembali = new Date(selectedPeminjaman?.tanggal_kembali ?? "")
-    const keterlambatanHari = Math.max(
-      0,
-      Math.ceil((sekarang.getTime() - batasKembali.getTime()) / (1000 * 60 * 60 * 24))
-    )
-    const denda = keterlambatanHari * 5000
-
-    const payload = {
-      peminjaman_id: Number(data.peminjaman_id),
-      tanggal_kembali_aktual: sekarang.toISOString(), // atau .split("T")[0] kalau backend minta date
-      kondisi_alat: data.kondisi_alat,
-      jumlah_dikembalikan: Number(selectedPeminjaman?.jumlah ?? 1),
-      keterlambatan_hari: keterlambatanHari,
-      denda,
-      catatan: data.catatan || "",
-      diterima_oleh: Number(user.id),
+    if (!user?.id || !selectedPeminjaman) {
+      toast.error("Data tidak valid")
+      return
     }
 
-    console.log("Payload pengembalian:", JSON.stringify(payload, null, 2))
+    // Validasi
+    const jumlahDikembalikan = Number(data.jumlah_dikembalikan)
+    const jumlahPinjam = Number(selectedPeminjaman.jumlah_pinjam)
 
-    await pengembalianService.create(payload)
-    toast.success("Pengembalian berhasil!")
-    setIsModalOpen(false)
-    fetchData()
-  } catch (error) {
-    toast.error("Gagal melakukan pengembalian")
-    console.error(error)
-  } finally {
-    setIsSubmitting(false)
+    if (!data.kondisi_alat?.trim()) {
+      toast.error("Kondisi alat harus dipilih")
+      return
+    }
+
+    if (isNaN(jumlahDikembalikan) || jumlahDikembalikan <= 0) {
+      toast.error("Jumlah dikembalikan harus lebih dari 0")
+      return
+    }
+
+    if (jumlahDikembalikan > jumlahPinjam) {
+      toast.error(`Jumlah dikembalikan tidak boleh melebihi ${jumlahPinjam}`)
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Buat payload dengan HANYA field yang diperbolehkan
+      const payload: any = {
+        peminjaman_id: Number(selectedPeminjaman.id),
+        kondisi_alat: data.kondisi_alat.trim().toLowerCase(),
+        jumlah_dikembalikan: jumlahDikembalikan,
+      }
+
+      // HANYA tambahkan catatan jika tidak kosong
+      if (data.catatan && data.catatan.trim() !== "") {
+        payload.catatan = data.catatan.trim()
+      }
+
+      console.log("✅ Final payload (only allowed fields):", payload)
+
+      // Get token
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token")
+      const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api"
+
+      // Call API directly to avoid service layer adding extra fields
+      const response = await axios.post(`${baseURL}/pengembalian`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
+
+      console.log("✅ Response:", response.data)
+      
+      toast.success("Pengembalian berhasil dicatat!")
+      setIsModalOpen(false)
+      reset()
+      setSelectedPeminjaman(null)
+      
+      setTimeout(() => {
+        fetchData()
+      }, 500)
+      
+    } catch (error: any) {
+      console.error("❌ Error:", error)
+      
+      if (error?.response?.status === 401) {
+        toast.error("Sesi Anda telah berakhir. Silakan login kembali.")
+      } else if (error?.response?.status === 400) {
+        const errorData = error.response.data
+        let errorMsg = "Validasi gagal"
+        
+        if (errorData?.errors && Array.isArray(errorData.errors)) {
+          const fieldErrors = errorData.errors
+            .map((err: any) => `${err.field}: ${err.message}`)
+            .join(", ")
+          errorMsg = fieldErrors || errorData.message || errorMsg
+        } else if (errorData?.message) {
+          errorMsg = errorData.message
+        } else if (typeof errorData === 'string') {
+          errorMsg = errorData
+        }
+        
+        toast.error(errorMsg)
+      } else if (error?.response?.status === 404) {
+        toast.error("Data peminjaman tidak ditemukan")
+      } else if (error?.response?.status === 409) {
+        toast.error("Alat sudah dikembalikan sebelumnya")
+      } else {
+        const errorMsg = error?.response?.data?.message || error?.message || "Gagal melakukan pengembalian"
+        toast.error(errorMsg)
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
-}
 
   return (
     <>
@@ -132,20 +194,24 @@ export default function PeminjamPengembalianPage() {
                     <Package className="h-6 w-6 text-primary-foreground" />
                   </div>
                   <h3 className="mb-1 text-lg font-bold text-card-foreground">{peminjaman.alat?.nama_alat}</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">Jumlah: {peminjaman.jumlah}</p>
+                  <p className="mb-4 text-sm text-muted-foreground">Jumlah: {peminjaman.jumlah_pinjam}</p>
                   <div className="mb-5 space-y-2 text-sm">
                     <p className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       Tgl Pinjam:{" "}
                       <span className="text-card-foreground">
-                        {new Date(peminjaman.tanggal_pinjam).toLocaleDateString("id-ID")}
+                        {peminjaman.tanggal_pinjam
+                          ? new Date(peminjaman.tanggal_pinjam).toLocaleDateString("id-ID")
+                          : "-"}
                       </span>
                     </p>
                     <p className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       Batas Kembali:{" "}
                       <span className="text-card-foreground">
-                        {new Date(peminjaman.tanggal_kembali).toLocaleDateString("id-ID")}
+                        {peminjaman.tanggal_kembali_rencana
+                          ? new Date(peminjaman.tanggal_kembali_rencana).toLocaleDateString("id-ID")
+                          : "-"}
                       </span>
                     </p>
                   </div>
@@ -171,7 +237,7 @@ export default function PeminjamPengembalianPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">{selectedPeminjaman?.alat?.nama_alat}</p>
-                  <p className="text-xs text-muted-foreground">Jumlah: {selectedPeminjaman?.jumlah}</p>
+                  <p className="text-xs text-muted-foreground">Jumlah Dipinjam: {selectedPeminjaman?.jumlah_pinjam}</p>
                 </div>
               </div>
             </div>
@@ -179,15 +245,17 @@ export default function PeminjamPengembalianPage() {
             <input type="hidden" {...register("peminjaman_id", { valueAsNumber: true })} />
 
             <div>
-              <label className="text-sm font-medium text-card-foreground">Kondisi Alat</label>
+              <label className="text-sm font-medium text-card-foreground">
+                Kondisi Alat <span className="text-destructive">*</span>
+              </label>
               <select
-                {...register("kondisi_alat")}
+                {...register("kondisi_alat", { required: "Kondisi alat harus dipilih" })}
                 className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
               >
                 <option value="">Pilih Kondisi</option>
-                <option value="Baik">Baik</option>
-                <option value="Rusak Ringan">Rusak Ringan</option>
-                <option value="Rusak Berat">Rusak Berat</option>
+                <option value="baik">Baik</option>
+                <option value="rusak ringan">Rusak Ringan</option>
+                <option value="rusak berat">Rusak Berat</option>
               </select>
               {errors.kondisi_alat && (
                 <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.kondisi_alat.message}</p>
@@ -195,11 +263,39 @@ export default function PeminjamPengembalianPage() {
             </div>
 
             <div>
+              <label className="text-sm font-medium text-card-foreground">
+                Jumlah Dikembalikan <span className="text-destructive">*</span>
+                <span className="ml-1 text-xs text-muted-foreground">(Maks: {selectedPeminjaman?.jumlah_pinjam || 0})</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={selectedPeminjaman?.jumlah_pinjam ?? 1}
+                {...register("jumlah_dikembalikan", { 
+                  valueAsNumber: true,
+                  required: "Jumlah dikembalikan harus diisi",
+                  min: { value: 1, message: "Minimal 1" },
+                  max: { 
+                    value: selectedPeminjaman?.jumlah_pinjam ?? 1, 
+                    message: `Maksimal ${selectedPeminjaman?.jumlah_pinjam || 1}` 
+                  }
+                })}
+                className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
+                placeholder="Masukkan jumlah"
+              />
+              {errors.jumlah_dikembalikan && (
+                <p className="mt-2 text-xs text-destructive animate-fade-in">
+                  {errors.jumlah_dikembalikan.message}
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="text-sm font-medium text-card-foreground">Catatan (opsional)</label>
               <textarea
                 {...register("catatan")}
-                rows={2}
-                placeholder="Catatan tambahan..."
+                rows={3}
+                placeholder="Tambahkan catatan jika ada kerusakan atau hal lain yang perlu diperhatikan..."
                 className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
               />
             </div>
@@ -207,8 +303,13 @@ export default function PeminjamPengembalianPage() {
             <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-2xl border border-border/50 px-5 py-3 text-sm font-medium text-muted-foreground transition-all duration-300 hover:bg-secondary hover:text-foreground"
+                onClick={() => {
+                  setIsModalOpen(false)
+                  setSelectedPeminjaman(null)
+                  reset()
+                }}
+                disabled={isSubmitting}
+                className="rounded-2xl border border-border/50 px-5 py-3 text-sm font-medium text-muted-foreground transition-all duration-300 hover:bg-secondary hover:text-foreground disabled:opacity-50"
               >
                 Batal
               </button>
@@ -218,7 +319,7 @@ export default function PeminjamPengembalianPage() {
                 className="flex items-center gap-2 rounded-2xl gradient-accent px-5 py-3 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:opacity-90 disabled:opacity-50 glow-accent"
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Kembalikan
+                {isSubmitting ? "Memproses..." : "Kembalikan"}
               </button>
             </div>
           </form>

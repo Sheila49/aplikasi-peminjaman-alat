@@ -54,63 +54,77 @@ export default function PetugasPeminjamanPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      pending: "bg-yellow-500/10 text-yellow-500",
-      approved: "bg-primary/10 text-primary",
-      rejected: "bg-destructive/10 text-destructive",
-      returned: "bg-accent/10 text-accent",
-    }
-    return (
-      <span
-        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[status] || ""}`}
-      >
-        {status}
-      </span>
-    )
+  const styles: Record<string, string> = {
+    diajukan: "bg-yellow-500/10 text-yellow-500",
+    disetujui: "bg-primary/10 text-primary",
+    ditolak: "bg-destructive/10 text-destructive",
+    dipinjam: "bg-blue-500/10 text-blue-500",
+    dikembalikan: "bg-green-500/10 text-green-500",
   }
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[status] || ""}`}
+    >
+      {status}
+    </span>
+  )
+}
 
-  const columns = [
-    { key: "id", label: "ID" },
-    { key: "user", label: "Peminjam", render: (p: Peminjaman) => p.user?.nama_lengkap || "-" },
-    { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama_alat || "-" },
-    { key: "jumlah", label: "Jumlah" },
-    {
-      key: "tanggal_pinjam",
-      label: "Tgl Pinjam",
-      render: (p: Peminjaman) => new Date(p.tanggal_pinjam).toLocaleDateString("id-ID"),
-    },
-    {
-      key: "tanggal_kembali",
-      label: "Tgl Kembali",
-      render: (p: Peminjaman) => new Date(p.tanggal_kembali).toLocaleDateString("id-ID"),
-    },
-    { key: "status", label: "Status", render: (p: Peminjaman) => getStatusBadge(p.status) },
-    {
-      key: "actions",
-      label: "Aksi",
-      render: (p: Peminjaman) =>
-        p.status === "diajukan" ? (
-          <div className="flex gap-1">
-            <button
-              onClick={() => handleApprove(p.id)}
-              className="flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
-            >
-              <CheckCircle className="h-3.5 w-3.5" />
-              Setujui
-            </button>
-            <button
-              onClick={() => handleReject(p.id)}
-              className="flex items-center gap-1 rounded-lg bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-              Tolak
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">-</span>
-        ),
-    },
-  ]
+ const columns = [
+  { key: "id", label: "ID" },
+  { key: "peminjam", label: "Peminjam", render: (p: Peminjaman) => p.peminjam?.nama_lengkap || "-" },
+  { key: "alat", label: "Alat", render: (p: Peminjaman) => p.alat?.nama_alat || "-" },
+  { key: "jumlah_pinjam", label: "Jumlah", render: (p: Peminjaman) => p.jumlah_pinjam ?? "-" },
+  { 
+    key: "tanggal_pinjam", 
+    label: "Tgl Pinjam", 
+    render: (p: Peminjaman) => 
+      p.tanggal_pinjam 
+        ? new Date(p.tanggal_pinjam).toLocaleDateString("id-ID") 
+        : "-" 
+  },
+  { 
+    key: "tanggal_kembali_rencana", 
+    label: "Tgl Kembali", 
+    render: (p: Peminjaman) => 
+      p.tanggal_kembali_rencana 
+        ? new Date(p.tanggal_kembali_rencana).toLocaleDateString("id-ID") 
+        : "-" 
+  },
+  { key: "status", label: "Status", render: (p: Peminjaman) => getStatusBadge(p.status) },
+  {
+  key: "actions",
+  label: "Aksi",
+  render: (p: Peminjaman) => (
+    <div className="flex gap-1">
+      <button
+        onClick={() => handleApprove(p.id)}
+        disabled={p.status !== "diajukan"}
+        className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${
+          p.status === "diajukan"
+            ? "bg-primary/10 text-primary hover:bg-primary/20"
+            : "bg-muted text-muted-foreground cursor-not-allowed"
+        }`}
+      >
+        <CheckCircle className="h-3.5 w-3.5" />
+        Setujui
+      </button>
+      <button
+        onClick={() => handleReject(p.id)}
+        disabled={p.status !== "diajukan"}
+        className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${
+          p.status === "diajukan"
+            ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+            : "bg-muted text-muted-foreground cursor-not-allowed"
+        }`}
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        Tolak
+      </button>
+    </div>
+  ),
+},
+]
 
   return (
     <>
