@@ -9,8 +9,8 @@ export const peminjamanService = {
     return response.data
   },
 
-  getByUser: async (userId: number, page = 1, limit = 10): Promise<PaginatedResponse<Peminjaman>> => {
-    const response = await api.get<PaginatedResponse<Peminjaman>>(`/peminjaman/user/${userId}`, {
+  getByUser: async (page = 1, limit = 10): Promise<PaginatedResponse<Peminjaman>> => {
+    const response = await api.get<PaginatedResponse<Peminjaman>>("/peminjaman/user", {
       params: { page, limit },
     })
     return response.data
@@ -22,9 +22,21 @@ export const peminjamanService = {
   },
 
   create: async (data: Partial<Peminjaman>): Promise<Peminjaman> => {
-    console.log("Payload dikirim:", data) // debug
-    const response = await api.post<ApiResponse<Peminjaman>>("/peminjaman", data)
-    return response.data.data
+    try {
+      const response = await api.post<ApiResponse<Peminjaman>>("/peminjaman", data, {
+        validateStatus: () => true,
+      })
+      if (response.status >= 400) {
+        const err: any = new Error(`Request failed with status ${response.status}`)
+        err.response = { data: response.data, status: response.status }
+        throw err
+      }
+      return response.data.data
+    } catch (err) {
+      const error: any = err
+      console.error("peminjaman.create - full error:", error)
+      throw err
+    }
   },
 
   update: async (id: number, data: Partial<Peminjaman>): Promise<Peminjaman> => {
@@ -32,13 +44,17 @@ export const peminjamanService = {
     return response.data.data
   },
 
-  approve: async (id: number): Promise<Peminjaman> => {
-    const response = await api.patch<ApiResponse<Peminjaman>>(`/peminjaman/${id}/approve`)
+  approve: async (id: number, catatan?: string): Promise<Peminjaman> => {
+    const response = await api.patch<ApiResponse<Peminjaman>>(`/peminjaman/${id}/approve`, {
+      catatan_persetujuan: catatan,
+    })
     return response.data.data
   },
 
-  reject: async (id: number): Promise<Peminjaman> => {
-    const response = await api.patch<ApiResponse<Peminjaman>>(`/peminjaman/${id}/reject`)
+  reject: async (id: number, catatan?: string): Promise<Peminjaman> => {
+    const response = await api.patch<ApiResponse<Peminjaman>>(`/peminjaman/${id}/reject`, {
+      catatan_persetujuan: catatan,
+    })
     return response.data.data
   },
 

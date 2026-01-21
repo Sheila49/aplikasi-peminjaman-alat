@@ -18,16 +18,15 @@ export default function PeminjamDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!user?.id) return
       try {
-        const res = await peminjamanService.getByUser(user.id, 1, 100)
+        const res = await peminjamanService.getByUser(1, 100) // ✅ tanpa userId
 
         const pending = res.data.filter((p) => p.status === "diajukan").length
         const approved = res.data.filter((p) => p.status === "disetujui").length
         const returned = res.data.filter((p) => p.status === "dikembalikan").length
 
         setStats({
-          total: res.pagination.total, // ✅ ambil dari pagination
+          total: res.pagination.total,
           pending,
           approved,
           returned,
@@ -39,7 +38,7 @@ export default function PeminjamDashboard() {
       }
     }
     fetchStats()
-  }, [user?.id])
+  }, []) // ✅ tidak perlu dependensi user.id
 
   return (
     <>

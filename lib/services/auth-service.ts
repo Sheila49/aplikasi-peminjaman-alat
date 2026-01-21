@@ -21,10 +21,17 @@ export const authService = {
     const data = await res.json()
 
     // ✅ ambil dari data.data sesuai backend
-    return {
-      user: data.data.user,
-      token: data.data.token,
-    }
+    const user = data.data.user
+    const token = data.data.token
+
+    console.log("Token:", token)
+
+    // ✅ simpan token agar bisa dipakai di request berikutnya
+    localStorage.setItem("token", token)
+    // kalau mau session-only:
+    // sessionStorage.setItem("token", token)
+
+    return { user, token }
   },
 
   register: async (data: RegisterData): Promise<AuthResponse> => {

@@ -15,10 +15,10 @@ export default function PeminjamPeminjamanPage() {
   const [totalPages, setTotalPages] = useState(1)
 
   const fetchData = useCallback(async () => {
-    if (!user?.id) return
     setIsLoading(true)
     try {
-      const res = await peminjamanService.getByUser(user.id, page)
+      // ✅ panggil tanpa userId
+      const res = await peminjamanService.getByUser(page)
       setPeminjamanList(res.data)
       setTotalPages(res.pagination.totalPages)
     } catch (error) {
@@ -27,7 +27,7 @@ export default function PeminjamPeminjamanPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [page, user?.id])
+  }, [page])
 
   useEffect(() => {
     fetchData()

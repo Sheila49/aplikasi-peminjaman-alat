@@ -9,7 +9,10 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Aplikasi Peminjaman Alat",
   description: "Sistem manajemen peminjaman alat",
-    generator: 'v0.app'
+  generator: 'v0.app',
+  icons: {
+    icon: "/LOGO STMJ.png",
+  },
 }
 
 export default function RootLayout({
