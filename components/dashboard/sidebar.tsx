@@ -14,11 +14,11 @@ import {
   RotateCcw,
   FileText,
   LogOut,
-  Wrench,
   CheckCircle,
   FileBarChart,
   ChevronRight,
 } from "lucide-react"
+import Image from "next/image"
 
 interface NavItem {
   label: string
@@ -79,7 +79,12 @@ export function Sidebar({ role }: SidebarProps) {
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-border/30 px-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary glow-primary">
-          <Wrench className="h-5 w-5 text-primary-foreground" />
+          <Image
+            src="/LOGO STMJ.png"
+            alt="Logo Aplikasi"
+            width={32}
+            height={32}
+          />
         </div>
         <span className="text-lg font-bold text-sidebar-foreground">Peminjaman</span>
       </div>

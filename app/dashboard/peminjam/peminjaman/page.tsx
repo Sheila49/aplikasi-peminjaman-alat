@@ -1,11 +1,17 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import toast from "react-hot-toast"
+import { Filter, ChevronDown, X, Search as SearchIcon, AlertCircle } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { DataTable } from "@/components/dashboard/data-table"
+import { RejectDetailModal } from "@/components/dashboard/reject-detail-modal"
 import { peminjamanService } from "@/lib/services/peminjaman-service"
 import { useAuthStore } from "@/store/auth-store"
 import type { Peminjaman } from "@/lib/types"
+
+type StatusFilter = "all" | "diajukan" | "disetujui" | "ditolak" | "dipinjam" | "dikembalikan"
+type SortField = "tanggal_pengajuan" | "tanggal_pinjam" | "alat" | "jumlah_pinjam" | "status"
+type SortOrder = "asc" | "desc"
 
 export default function PeminjamPeminjamanPage() {
   const { user } = useAuthStore()
@@ -13,12 +19,24 @@ export default function PeminjamPeminjamanPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [searchQuery, setSearchQuery] = useState("")
+  
+  // Filter & Sort states
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [sortField, setSortField] = useState<SortField>("tanggal_pengajuan")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false)
+  const [isSortOpen, setIsSortOpen] = useState(false)
+  
+  // Reject Detail Modal State
+  const [isRejectDetailOpen, setIsRejectDetailOpen] = useState(false)
+  const [selectedRejection, setSelectedRejection] = useState<Peminjaman | null>(null)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      // ✅ panggil tanpa userId
       const res = await peminjamanService.getByUser(page)
+      console.log("✅ Data peminjaman dari backend:", res.data)
       setPeminjamanList(res.data)
       setTotalPages(res.pagination.totalPages)
     } catch (error) {
@@ -32,6 +50,117 @@ export default function PeminjamPeminjamanPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  /* ================= SEARCH, FILTER & SORT LOGIC ================= */
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...peminjamanList]
+
+    // 1. SEARCH
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter((item) => {
+        const kodePeminjaman = item.kode_peminjaman?.toLowerCase() || ""
+        const alatName = item.alat?.nama_alat?.toLowerCase() || ""
+        const alatKode = item.alat?.kode_alat?.toLowerCase() || ""
+        const keperluan = item.keperluan?.toLowerCase() || ""
+        const status = item.status?.toLowerCase() || ""
+        
+        return (
+          kodePeminjaman.includes(query) ||
+          alatName.includes(query) ||
+          alatKode.includes(query) ||
+          keperluan.includes(query) ||
+          status.includes(query)
+        )
+      })
+    }
+
+    // 2. FILTER by status
+    if (statusFilter !== "all") {
+      result = result.filter((item) => item.status === statusFilter)
+    }
+
+    // 3. SORT
+    result.sort((a, b) => {
+      let compareValue = 0
+
+      switch (sortField) {
+        case "tanggal_pengajuan":
+          const dateA = a.tanggal_pengajuan ? new Date(a.tanggal_pengajuan).getTime() : 0
+          const dateB = b.tanggal_pengajuan ? new Date(b.tanggal_pengajuan).getTime() : 0
+          compareValue = dateA - dateB
+          break
+        case "tanggal_pinjam":
+          const pinjamA = a.tanggal_pinjam ? new Date(a.tanggal_pinjam).getTime() : 0
+          const pinjamB = b.tanggal_pinjam ? new Date(b.tanggal_pinjam).getTime() : 0
+          compareValue = pinjamA - pinjamB
+          break
+        case "alat":
+          compareValue = (a.alat?.nama_alat || "").localeCompare(b.alat?.nama_alat || "")
+          break
+        case "jumlah_pinjam":
+          compareValue = (a.jumlah_pinjam || 0) - (b.jumlah_pinjam || 0)
+          break
+        case "status":
+          const statusOrder: Record<string, number> = {
+            diajukan: 1,
+            disetujui: 2,
+            ditolak: 3,
+            dipinjam: 4,
+            dikembalikan: 5
+          }
+          compareValue = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
+          break
+      }
+
+      return sortOrder === "asc" ? compareValue : -compareValue
+    })
+
+    return result
+  }, [peminjamanList, searchQuery, statusFilter, sortField, sortOrder])
+
+  /* ================= HANDLERS ================= */
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setPage(1)
+  }
+
+  const handleStatusFilter = (status: StatusFilter) => {
+    setStatusFilter(status)
+    setIsStatusFilterOpen(false)
+    setPage(1)
+  }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("desc")
+    }
+    setIsSortOpen(false)
+  }
+
+  const clearFilters = () => {
+    setSearchQuery("")
+    setStatusFilter("all")
+    setSortField("tanggal_pengajuan")
+    setSortOrder("desc")
+  }
+
+  const openRejectDetail = (peminjaman: Peminjaman) => {
+    console.log("🔍 Data peminjaman yang ditolak:", peminjaman)
+    console.log("📝 Catatan persetujuan/penolakan:", peminjaman.catatan_persetujuan)
+    setSelectedRejection(peminjaman)
+    setIsRejectDetailOpen(true)
+  }
+
+  const closeRejectDetail = () => {
+    setIsRejectDetailOpen(false)
+    setSelectedRejection(null)
+  }
+
+  const hasActiveFilters = searchQuery || statusFilter !== "all"
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -218,12 +347,12 @@ export default function PeminjamPeminjamanPage() {
           </tbody>
         </table>
 
-        ${peminjaman.catatan || peminjaman.catatan_persetujuan ? `
+        ${peminjaman.keperluan || peminjaman.catatan_persetujuan ? `
         <div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 4px solid #3b82f6; border-radius: 4px;">
-          ${peminjaman.catatan ? `
+          ${peminjaman.keperluan ? `
             <div style="margin-bottom: 10px;">
-              <strong style="color: #1e3a8a;">Catatan Peminjam:</strong>
-              <p style="margin-top: 5px; font-size: 13px; color: #333;">${peminjaman.catatan}</p>
+              <strong style="color: #1e3a8a;">Keperluan:</strong>
+              <p style="margin-top: 5px; font-size: 13px; color: #333;">${peminjaman.keperluan}</p>
             </div>
           ` : ''}
           ${peminjaman.catatan_persetujuan ? `
@@ -270,12 +399,34 @@ export default function PeminjamPeminjamanPage() {
     printWindow.document.close()
   }
 
+  const getStatusFilterLabel = () => {
+    switch (statusFilter) {
+      case "diajukan": return "Diajukan"
+      case "disetujui": return "Disetujui"
+      case "ditolak": return "Ditolak"
+      case "dipinjam": return "Dipinjam"
+      case "dikembalikan": return "Dikembalikan"
+      default: return "Status"
+    }
+  }
+
+  const getSortLabel = () => {
+    const labels: Record<SortField, string> = {
+      tanggal_pengajuan: "Tgl Pengajuan",
+      tanggal_pinjam: "Tgl Pinjam",
+      alat: "Alat",
+      jumlah_pinjam: "Jumlah",
+      status: "Status"
+    }
+    return labels[sortField]
+  }
+
   const columns = [
     { 
       key: "kode_peminjaman", 
       label: "Kode",
       render: (p: Peminjaman) => (
-        <span className="font-mono text-xs">{p.kode_peminjaman}</span>
+        <span className="font-mono text-xs font-medium text-foreground">{p.kode_peminjaman}</span>
       )
     },
     { 
@@ -283,8 +434,8 @@ export default function PeminjamPeminjamanPage() {
       label: "Alat", 
       render: (p: Peminjaman) => (
         <div>
-          <div className="font-medium">{p.alat?.nama_alat || "-"}</div>
-          <div className="text-xs text-gray-500">{p.alat?.kode_alat || ""}</div>
+          <div className="font-medium text-foreground">{p.alat?.nama_alat || "-"}</div>
+          <div className="text-xs text-muted-foreground">{p.alat?.kode_alat || ""}</div>
         </div>
       )
     },
@@ -292,68 +443,306 @@ export default function PeminjamPeminjamanPage() {
       key: "jumlah_pinjam", 
       label: "Jumlah",
       render: (p: Peminjaman) => (
-        <span className="font-semibold">{p.jumlah_pinjam}</span>
+        <span className="font-semibold text-foreground">{p.jumlah_pinjam}</span>
       )
     },
     {
       key: "tanggal_pinjam",
       label: "Tgl Pinjam",
-      render: (p: Peminjaman) =>
-        p.tanggal_pinjam ? new Date(p.tanggal_pinjam).toLocaleDateString("id-ID") : "-"
+      render: (p: Peminjaman) => {
+        if (!p.tanggal_pinjam) return "-"
+        const date = new Date(p.tanggal_pinjam)
+        return (
+          <div className="text-xs">
+            <p className="font-medium text-foreground">{date.toLocaleDateString("id-ID")}</p>
+          </div>
+        )
+      }
     },
     {
       key: "tanggal_kembali",
       label: "Tgl Kembali",
-      render: (p: Peminjaman) =>
-        p.tanggal_kembali_rencana
-          ? new Date(p.tanggal_kembali_rencana).toLocaleDateString("id-ID")
-          : "-"
+      render: (p: Peminjaman) => {
+        if (!p.tanggal_kembali_rencana) return "-"
+        const date = new Date(p.tanggal_kembali_rencana)
+        return (
+          <div className="text-xs">
+            <p className="font-medium text-foreground">{date.toLocaleDateString("id-ID")}</p>
+          </div>
+        )
+      }
     },
     { 
       key: "status", 
       label: "Status", 
       render: (p: Peminjaman) => getStatusBadge(p.status) 
     },
-    { 
-      key: "keperluan", 
-      label: "Keperluan", 
-      render: (p: Peminjaman) => p.keperluan || "-" 
-    },
     {
       key: "aksi",
       label: "Aksi",
       render: (p: Peminjaman) => (
-        <button
-          onClick={() => generatePDF(p)}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
-          Cetak PDF
-        </button>
+        <div className="flex gap-2">
+          {/* Lihat Keterangan Penolakan - Tampil untuk semua status ditolak */}
+          {p.status === "ditolak" && (
+            <button
+              onClick={() => openRejectDetail(p)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-red-600 bg-red-500/10 hover:bg-red-500/20"
+              title="Lihat alasan penolakan"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Lihat Alasan
+            </button>
+          )}
+          
+          {/* Cetak PDF */}
+          {p.status === "disetujui" && (
+            <button
+              onClick={() => generatePDF(p)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-primary bg-primary/10 hover:bg-primary/20"
+              title="Cetak bukti peminjaman"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Cetak
+            </button>
+          )}
+        </div>
       )
     },
   ]
 
   return (
     <>
-      <Header title="Peminjaman Saya" />
-      <div className="p-6">
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-foreground">Riwayat Peminjaman</h2>
-          <p className="text-sm text-muted-foreground">Daftar semua peminjaman Anda</p>
+      <Header
+        title="Peminjaman Saya"
+        onSearch={handleSearch}
+        searchValue={searchQuery}
+        placeholder="Cari kode peminjaman, alat, keperluan..."
+      />
+
+      <div className="p-6 space-y-6">
+        {/* Filter & Sort Bar */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {/* Status Filter */}
+            <div className="relative">
+              <button
+                onClick={() => setIsStatusFilterOpen(!isStatusFilterOpen)}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  statusFilter !== "all"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border bg-background text-foreground hover:bg-accent"
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                {getStatusFilterLabel()}
+                <ChevronDown className={`h-4 w-4 transition-transform ${isStatusFilterOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isStatusFilterOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsStatusFilterOpen(false)} />
+                  <div className="absolute left-0 top-full mt-2 z-20 w-48 rounded-lg border border-border bg-background shadow-lg">
+                    <div className="p-1">
+                      <button
+                        onClick={() => handleStatusFilter("all")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "all" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        Semua Status
+                      </button>
+                      <button
+                        onClick={() => handleStatusFilter("diajukan")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "diajukan" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        📝 Diajukan
+                      </button>
+                      <button
+                        onClick={() => handleStatusFilter("disetujui")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "disetujui" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        ✅ Disetujui
+                      </button>
+                      <button
+                        onClick={() => handleStatusFilter("ditolak")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "ditolak" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        ❌ Ditolak
+                      </button>
+                      <button
+                        onClick={() => handleStatusFilter("dipinjam")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "dipinjam" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        📦 Dipinjam
+                      </button>
+                      <button
+                        onClick={() => handleStatusFilter("dikembalikan")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          statusFilter === "dikembalikan" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        ✓ Dikembalikan
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Sort By Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                Sort By: {getSortLabel()}
+                <ChevronDown className={`h-4 w-4 transition-transform ${isSortOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isSortOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
+                  <div className="absolute left-0 top-full mt-2 z-20 w-56 rounded-lg border border-border bg-background shadow-lg">
+                    <div className="p-1">
+                      <button
+                        onClick={() => handleSort("tanggal_pengajuan")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          sortField === "tanggal_pengajuan" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        📅 Tgl Pengajuan {sortField === "tanggal_pengajuan" && (sortOrder === "asc" ? "↑" : "↓")}
+                      </button>
+                      <button
+                        onClick={() => handleSort("tanggal_pinjam")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          sortField === "tanggal_pinjam" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        📆 Tgl Pinjam {sortField === "tanggal_pinjam" && (sortOrder === "asc" ? "↑" : "↓")}
+                      </button>
+                      <button
+                        onClick={() => handleSort("alat")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          sortField === "alat" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        🔧 Alat {sortField === "alat" && (sortOrder === "asc" ? "↑" : "↓")}
+                      </button>
+                      <button
+                        onClick={() => handleSort("jumlah_pinjam")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          sortField === "jumlah_pinjam" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        🔢 Jumlah {sortField === "jumlah_pinjam" && (sortOrder === "asc" ? "↑" : "↓")}
+                      </button>
+                      <button
+                        onClick={() => handleSort("status")}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                          sortField === "status" ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                        }`}
+                      >
+                        📊 Status {sortField === "status" && (sortOrder === "asc" ? "↑" : "↓")}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Results Info */}
+          <div className="text-sm text-muted-foreground">
+            Menampilkan <span className="font-semibold text-foreground">{filteredAndSortedData.length}</span> dari{" "}
+            <span className="font-semibold text-foreground">{peminjamanList.length}</span> peminjaman
+          </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={peminjamanList}
-          isLoading={isLoading}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+        {/* Search Result Info */}
+        {searchQuery && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm text-muted-foreground">
+              Hasil pencarian untuk <span className="font-semibold text-primary">"{searchQuery}"</span>
+              {filteredAndSortedData.length === 0 && " - Tidak ada hasil ditemukan"}
+            </p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {(searchQuery || hasActiveFilters) && filteredAndSortedData.length === 0 && (
+          <div className="rounded-lg border border-border bg-muted/30 p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
+              <SearchIcon className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground">Tidak Ada Hasil</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Tidak ditemukan peminjaman yang sesuai dengan filter yang dipilih
+            </p>
+            <button
+              onClick={clearFilters}
+              className="mt-4 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Reset Filter
+            </button>
+          </div>
+        )}
+
+        {/* Data Table */}
+        {(!searchQuery && !hasActiveFilters) || filteredAndSortedData.length > 0 ? (
+          <DataTable
+            columns={columns}
+            data={filteredAndSortedData}
+            isLoading={isLoading}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        ) : null}
       </div>
+
+      {/* Reject Detail Modal */}
+      {selectedRejection && (
+        <RejectDetailModal
+          isOpen={isRejectDetailOpen}
+          onClose={closeRejectDetail}
+          keterangan={selectedRejection.catatan_persetujuan || "Tidak ada keterangan"}
+          peminjaman={{
+            kode: selectedRejection.kode_peminjaman || "",
+            alat: selectedRejection.alat?.nama_alat || "",
+            tanggal: selectedRejection.tanggal_pengajuan 
+              ? new Date(selectedRejection.tanggal_pengajuan).toLocaleDateString("id-ID", {
+                  day: 'numeric',
+                  month: 'long', 
+                  year: 'numeric'
+                })
+              : ""
+          }}
+        />
+      )}
     </>
   )
 }

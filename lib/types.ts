@@ -2,7 +2,13 @@
 // User & Auth Types
 // =======================
 export type UserRole = "admin" | "petugas" | "peminjam"
-export type KondisiAlat = "Baik" | "Rusak Ringan" | "Rusak Berat"
+
+// Kondisi yang benar-benar ada di database
+export type KondisiAlat = "baik" | "rusak ringan" | "rusak berat"
+
+// Kondisi filter di UI (tambahkan "all")
+export type KondisiFilter = "all" | KondisiAlat
+
 export type StatusPeminjaman = "diajukan" | "disetujui" | "ditolak" | "dipinjam" | "dikembalikan"
 
 export interface User {
@@ -45,6 +51,7 @@ export interface Kategori {
   id: number
   nama_kategori: string
   deskripsi?: string
+  jumlah_alat?: number
   created_at?: string
   updated_at?: string
 }
@@ -79,9 +86,9 @@ export interface Peminjaman {
   id: number
   kode_peminjaman: string
   user_id: number
-  peminjam?: User        // relasi ke user peminjam
+  peminjam?: User
   alat_id: number
-  alat?: Alat            // relasi ke alat
+  alat?: Alat
   jumlah_pinjam: number
   tanggal_pengajuan?: string
   tanggal_pinjam?: string
@@ -89,9 +96,15 @@ export interface Peminjaman {
   keperluan?: string
   status: StatusPeminjaman
   disetujui_oleh?: number
-  penyetuju?: User       // relasi ke user penyetuju
+  penyetuju?: User
   tanggal_persetujuan?: string
-  catatan_persetujuan?: string
+  
+  // ✅ Field yang BENAR-BENAR ada di backend
+  catatan_persetujuan?: string  // Digunakan untuk approve DAN reject
+  
+  // ❌ Field ini TIDAK ada di backend (hapus atau comment)
+  // keterangan_penolakan?: string
+  
   catatan?: string
   created_at?: string
   updated_at?: string
@@ -114,6 +127,7 @@ export interface Pengembalian {
   diterima_oleh?: number
   created_at?: string
   updated_at?: string
+  keterangan?: string
 }
 
 // =======================
@@ -127,9 +141,11 @@ export interface LogAktivitas {
   tabel: string
   data_id: number // bisa dianggap record_id
   keterangan?: string // bisa dianggap detail
+  detail?: string // ✅ Alternative field name (beberapa backend pakai ini)
   ip_address?: string
   user_agent?: string
   created_at?: string
+  record_id?: number
 }
 
 // =======================

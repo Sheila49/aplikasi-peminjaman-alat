@@ -1,9 +1,10 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import toast from "react-hot-toast"
-import { RotateCcw, Loader2, Calendar, Package, Printer, AlertTriangle } from "lucide-react"
+import { RotateCcw, Loader2, Calendar, Package, AlertTriangle, Filter, ChevronDown, X, ArrowUpDown } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { Modal } from "@/components/dashboard/modal"
 import { peminjamanService } from "@/lib/services/peminjaman-service"
@@ -12,14 +13,32 @@ import { useAuthStore } from "@/store/auth-store"
 import type { Peminjaman } from "@/lib/types"
 import axios from "axios"
 
+type StatusFilter = "all" | "terlambat" | "tepat_waktu" | "mendekati_deadline"
+type SortField = "tanggal_kembali_rencana" | "alat" | "jumlah_pinjam" | "keterlambatan"
+type SortOrder = "asc" | "desc"
+
 export default function PeminjamPengembalianPage() {
   const { user } = useAuthStore()
+  
+  console.log("✨ Component rendered")
+  console.log("👤 Current user:", user)
+  
+  if (!user) {
+    console.warn("⚠️ User is not logged in!")
+  }
   const [approvedPeminjaman, setApprovedPeminjaman] = useState<Peminjaman[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedPeminjaman, setSelectedPeminjaman] = useState<Peminjaman | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [estimatedDenda, setEstimatedDenda] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
+  
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [sortField, setSortField] = useState<SortField>("tanggal_kembali_rencana")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false)
+  const [isSortOpen, setIsSortOpen] = useState(false)
 
   const {
     register,
@@ -41,9 +60,13 @@ export default function PeminjamPengembalianPage() {
 
   const calculateDenda = () => {
     if (!selectedPeminjaman?.tanggal_kembali_rencana) return
-
+    
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
     const dueDate = new Date(selectedPeminjaman.tanggal_kembali_rencana)
+    dueDate.setHours(0, 0, 0, 0)
+    
     const diffTime = today.getTime() - dueDate.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     
@@ -54,32 +77,198 @@ export default function PeminjamPengembalianPage() {
   }
 
   const fetchData = useCallback(async () => {
+    console.log("🔄 fetchData called")
     setIsLoading(true)
     try {
       const res = await peminjamanService.getByUser(1, 100)
-      const filtered = res.data.filter((p) => p.status === "disetujui" || p.status === "dipinjam")
+      console.log("📦 Full Response:", res)
+      console.log("📦 Response.data:", res?.data)
+      
+      // Handle berbagai struktur response
+      let dataArray: Peminjaman[] = []
+      
+      if (res?.data && Array.isArray(res.data)) {
+        dataArray = res.data
+      } else if (Array.isArray(res)) {
+        dataArray = res
+      } else {
+        console.error("❌ Unexpected response structure:", res)
+        toast.error("Format data tidak sesuai")
+        return
+      }
+      
+      console.log("📋 Data Array:", dataArray)
+      console.log("📋 Data Length:", dataArray.length)
+      
+      const filtered = dataArray.filter((p) => {
+        console.log(`🔍 Item ${p.id}: status = ${p.status}`)
+        // Filter hanya yang statusnya "dipinjam" (sudah diambil tapi belum dikembalikan)
+        return p.status === "dipinjam"
+      })
+      
+      console.log("✅ Filtered Data:", filtered)
+      console.log("✅ Filtered Length:", filtered.length)
+      
       setApprovedPeminjaman(filtered)
-    } catch (error) {
+      
+      if (filtered.length === 0) {
+        console.warn("⚠️ No approved peminjaman found")
+      }
+    } catch (error: any) {
+      console.error("❌ fetchData error:", error)
+      console.error("❌ Error response:", error?.response)
       toast.error("Gagal memuat data")
-      console.error(error)
     } finally {
       setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
+    console.log("🚀 Component mounted, calling fetchData")
     fetchData()
   }, [fetchData])
 
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...approvedPeminjaman]
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter((item) => {
+        const alatName = item.alat?.nama_alat?.toLowerCase() || ""
+        const alatKode = item.alat?.kode_alat?.toLowerCase() || ""
+        const kodePeminjaman = item.kode_peminjaman?.toLowerCase() || ""
+        
+        return (
+          alatName.includes(query) ||
+          alatKode.includes(query) ||
+          kodePeminjaman.includes(query)
+        )
+      })
+    }
+
+    if (statusFilter !== "all") {
+      result = result.filter((item) => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        const dueDate = new Date(item.tanggal_kembali_rencana)
+        dueDate.setHours(0, 0, 0, 0)
+        
+        const diffTime = dueDate.getTime() - today.getTime()
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        if (statusFilter === "terlambat") {
+          return today > dueDate
+        } else if (statusFilter === "tepat_waktu") {
+          return diffDays > 3
+        } else if (statusFilter === "mendekati_deadline") {
+          return diffDays >= 0 && diffDays <= 3
+        }
+        return true
+      })
+    }
+
+    result.sort((a, b) => {
+      let compareValue = 0
+
+      switch (sortField) {
+        case "tanggal_kembali_rencana":
+          const dateA = a.tanggal_kembali_rencana ? new Date(a.tanggal_kembali_rencana).getTime() : 0
+          const dateB = b.tanggal_kembali_rencana ? new Date(b.tanggal_kembali_rencana).getTime() : 0
+          compareValue = dateA - dateB
+          break
+        case "alat":
+          compareValue = (a.alat?.nama_alat || "").localeCompare(b.alat?.nama_alat || "")
+          break
+        case "jumlah_pinjam":
+          compareValue = (a.jumlah_pinjam || 0) - (b.jumlah_pinjam || 0)
+          break
+        case "keterlambatan":
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          
+          const getDaysLate = (date?: string) => {
+            if (!date) return 0
+            const dueDate = new Date(date)
+            dueDate.setHours(0, 0, 0, 0)
+            const diffTime = today.getTime() - dueDate.getTime()
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            return diffDays > 0 ? diffDays : 0
+          }
+          compareValue = getDaysLate(a.tanggal_kembali_rencana) - getDaysLate(b.tanggal_kembali_rencana)
+          break
+      }
+
+      return sortOrder === "asc" ? compareValue : -compareValue
+    })
+
+    return result
+  }, [approvedPeminjaman, searchQuery, statusFilter, sortField, sortOrder])
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+  }
+
+  const handleStatusFilter = (status: StatusFilter) => {
+    setStatusFilter(status)
+    setIsStatusFilterOpen(false)
+  }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("asc")
+    }
+    setIsSortOpen(false)
+  }
+
+  const clearFilters = () => {
+    setSearchQuery("")
+    setStatusFilter("all")
+    setSortField("tanggal_kembali_rencana")
+    setSortOrder("asc")
+  }
+
+  const hasActiveFilters = searchQuery || statusFilter !== "all"
+
   const openReturnModal = (peminjaman: Peminjaman) => {
+    console.log("📂 Opening modal for peminjaman:", peminjaman)
+    
+    if (!peminjaman || !peminjaman.id) {
+      console.error("❌ Invalid peminjaman data:", peminjaman)
+      toast.error("Data peminjaman tidak valid")
+      return
+    }
+    
     setSelectedPeminjaman(peminjaman)
     reset({
       peminjaman_id: peminjaman.id,
       kondisi_alat: "",
-      jumlah_dikembalikan: 1,
       catatan: "",
     })
+    
+    // Calculate denda for this peminjaman
+    if (peminjaman.tanggal_kembali_rencana) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const dueDate = new Date(peminjaman.tanggal_kembali_rencana)
+      dueDate.setHours(0, 0, 0, 0)
+      
+      const diffTime = today.getTime() - dueDate.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      const keterlambatan = diffDays > 0 ? diffDays : 0
+      const dendaKeterlambatan = keterlambatan * 10000
+      
+      setEstimatedDenda(dendaKeterlambatan)
+      console.log("💰 Estimated denda:", dendaKeterlambatan)
+    }
+    
     setIsModalOpen(true)
+    console.log("✅ Modal opened successfully")
   }
 
   const generateBuktiPengembalian = (peminjaman: Peminjaman, pengembalianData: any) => {
@@ -171,7 +360,6 @@ export default function PeminjamPengembalianPage() {
               Ref. Peminjaman: ${peminjaman.kode_peminjaman}
             </div>
           </div>
-
           <div class="info-card">
             <div class="info-row">
               <div class="info-label">Tanggal Pengembalian</div>
@@ -186,7 +374,6 @@ export default function PeminjamPengembalianPage() {
               <div class="info-value">${pengembalianData.kondisi_alat}</div>
             </div>
           </div>
-
           <div class="transaction-table">
             <div class="table-header">
               <h3>DETAIL PENGEMBALIAN</h3>
@@ -197,7 +384,7 @@ export default function PeminjamPengembalianPage() {
             </div>
             <div class="table-row">
               <span class="row-label">Jumlah Dikembalikan</span>
-              <span class="row-value">${pengembalianData.jumlah_dikembalikan} Unit</span>
+              <span class="row-value">${peminjaman.jumlah_pinjam} Unit</span>
             </div>
             <div class="table-row">
               <span class="row-label">Tanggal Pinjam</span>
@@ -208,7 +395,6 @@ export default function PeminjamPengembalianPage() {
               <span class="row-value">${formatDate(peminjaman.tanggal_kembali_rencana)}</span>
             </div>
           </div>
-
           <div class="denda-section">
             <h4>💰 ESTIMASI DENDA</h4>
             <div class="denda-row">
@@ -226,7 +412,6 @@ export default function PeminjamPengembalianPage() {
               <span class="denda-total">${formatCurrency(estimatedDenda)}</span>
             </div>
           </div>
-
           <div class="footer">
             <div class="signature-section">
               <div class="signature-box">
@@ -240,7 +425,6 @@ export default function PeminjamPengembalianPage() {
             </div>
           </div>
         </div>
-
         <div class="no-print" style="text-align: center; margin-top: 20px;">
           <button onclick="window.print()" style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
             Cetak PDF
@@ -260,21 +444,8 @@ export default function PeminjamPengembalianPage() {
       return
     }
 
-    const jumlahDikembalikan = Number(data.jumlah_dikembalikan)
-    const jumlahPinjam = Number(selectedPeminjaman.jumlah_pinjam)
-
     if (!data.kondisi_alat?.trim()) {
       toast.error("Kondisi alat harus dipilih")
-      return
-    }
-
-    if (isNaN(jumlahDikembalikan) || jumlahDikembalikan <= 0) {
-      toast.error("Jumlah dikembalikan harus lebih dari 0")
-      return
-    }
-
-    if (jumlahDikembalikan > jumlahPinjam) {
-      toast.error(`Jumlah dikembalikan tidak boleh melebihi ${jumlahPinjam}`)
       return
     }
 
@@ -284,7 +455,6 @@ export default function PeminjamPengembalianPage() {
       const payload: any = {
         peminjaman_id: Number(selectedPeminjaman.id),
         kondisi_alat: data.kondisi_alat.trim().toLowerCase(),
-        jumlah_dikembalikan: jumlahDikembalikan,
       }
 
       if (data.catatan && data.catatan.trim() !== "") {
@@ -303,7 +473,6 @@ export default function PeminjamPengembalianPage() {
 
       toast.success("Pengembalian berhasil dicatat!")
       
-      // Generate bukti pengembalian
       generateBuktiPengembalian(selectedPeminjaman, data)
       
       setIsModalOpen(false)
@@ -350,81 +519,271 @@ export default function PeminjamPengembalianPage() {
     }).format(amount)
   }
 
+  const getStatusFilterLabel = () => {
+    switch (statusFilter) {
+      case "terlambat": return "Terlambat"
+      case "tepat_waktu": return "Aman"
+      case "mendekati_deadline": return "Mendekati Deadline"
+      default: return "Status"
+    }
+  }
+
+  const getSortLabel = () => {
+    const labels: Record<SortField, string> = {
+      tanggal_kembali_rencana: "Deadline",
+      alat: "Alat",
+      jumlah_pinjam: "Jumlah",
+      keterlambatan: "Keterlambatan"
+    }
+    return labels[sortField]
+  }
+
+  const getDaysRemaining = (tanggalKembali?: string) => {
+    if (!tanggalKembali) return 0
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const dueDate = new Date(tanggalKembali)
+    dueDate.setHours(0, 0, 0, 0)
+    
+    const diffTime = dueDate.getTime() - today.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  const getStatusBadge = (daysRemaining: number) => {
+    if (daysRemaining < 0) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/20 px-3 py-1 text-xs font-medium text-destructive border border-destructive/30">
+          <AlertTriangle className="h-3 w-3" />
+          Terlambat {Math.abs(daysRemaining)} hari
+        </span>
+      )
+    } else if (daysRemaining <= 3) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-600 border border-amber-500/30">
+          <AlertTriangle className="h-3 w-3" />
+          {daysRemaining} hari lagi
+        </span>
+      )
+    } else {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary border border-primary/30">
+          <Calendar className="h-3 w-3" />
+          {daysRemaining} hari lagi
+        </span>
+      )
+    }
+  }
+
   return (
     <>
-      <Header title="Pengembalian Alat" />
-      <div className="p-6 animate-fade-in">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground">Alat yang Sedang Dipinjam</h2>
-          <p className="mt-1 text-muted-foreground">Kembalikan alat yang sudah selesai digunakan</p>
+      <Header
+        title="Pengembalian Alat"
+        onSearch={handleSearch}
+        searchValue={searchQuery}
+        placeholder="Cari nama alat, kode alat..."
+      />
+
+      <div className="p-6 space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsStatusFilterOpen(!isStatusFilterOpen)
+                  setIsSortOpen(false)
+                }}
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all duration-300 ${
+                  statusFilter !== "all"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/50 bg-input/30 text-foreground hover:border-border"
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                {getStatusFilterLabel()}
+                {statusFilter !== "all" && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                    1
+                  </span>
+                )}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {isStatusFilterOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsStatusFilterOpen(false)} />
+                  <div className="absolute left-0 top-full mt-2 z-20 w-64 rounded-xl border border-border/50 glass-strong p-2 shadow-xl animate-slide-up">
+                    <button
+                      onClick={() => handleStatusFilter("all")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        statusFilter === "all" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      Semua
+                    </button>
+                    <button
+                      onClick={() => handleStatusFilter("terlambat")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        statusFilter === "terlambat" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      🔴 Terlambat
+                    </button>
+                    <button
+                      onClick={() => handleStatusFilter("mendekati_deadline")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        statusFilter === "mendekati_deadline" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      ⚠️ Mendekati Deadline (≤3 hari)
+                    </button>
+                    <button
+                      onClick={() => handleStatusFilter("tepat_waktu")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        statusFilter === "tepat_waktu" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      ✅ Aman ({">"}3 hari)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsSortOpen(!isSortOpen)
+                  setIsStatusFilterOpen(false)
+                }}
+                className="flex items-center gap-2 rounded-xl border border-border/50 bg-input/30 px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-300 hover:border-border"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                Sort By: {getSortLabel()}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {isSortOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
+                  <div className="absolute left-0 top-full mt-2 z-20 w-64 rounded-xl border border-border/50 glass-strong p-2 shadow-xl animate-slide-up">
+                    <button
+                      onClick={() => handleSort("tanggal_kembali_rencana")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        sortField === "tanggal_kembali_rencana" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      📅 Deadline {sortField === "tanggal_kembali_rencana" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </button>
+                    <button
+                      onClick={() => handleSort("keterlambatan")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        sortField === "keterlambatan" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      ⏱ Keterlambatan {sortField === "keterlambatan" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </button>
+                    <button
+                      onClick={() => handleSort("alat")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        sortField === "alat" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      🔧 Alat {sortField === "alat" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </button>
+                    <button
+                      onClick={() => handleSort("jumlah_pinjam")}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        sortField === "jumlah_pinjam" ? "bg-primary/20 text-primary font-medium" : "hover:bg-secondary"
+                      }`}
+                    >
+                      📦 Jumlah {sortField === "jumlah_pinjam" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-2 rounded-xl border border-border/50 bg-input/30 px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-300 hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-4 w-4" />
+              Clear Filters
+            </button>
+          )}
         </div>
 
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center rounded-2xl glass">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Memuat data...</p>
-            </div>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : approvedPeminjaman.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl glass">
-            <RotateCcw className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">Tidak ada alat yang perlu dikembalikan</p>
+        ) : filteredAndSortedData.length === 0 ? (
+          <div className="rounded-xl border border-border/50 bg-card p-12 text-center">
+            <Package className="mx-auto h-16 w-16 text-muted-foreground/50" />
+            <h3 className="mt-4 text-lg font-semibold">
+              {hasActiveFilters ? "Tidak ada hasil" : "Belum ada peminjaman"}
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {hasActiveFilters
+                ? "Coba ubah filter atau pencarian Anda"
+                : "Peminjaman yang disetujui akan muncul di sini"}
+            </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {approvedPeminjaman.map((peminjaman, index) => {
-              const today = new Date()
-              const dueDate = new Date(peminjaman.tanggal_kembali_rencana)
-              const isOverdue = today > dueDate
-              const daysLate = isOverdue ? Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
-
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredAndSortedData.map((item, index) => {
+              const daysRemaining = getDaysRemaining(item.tanggal_kembali_rencana)
+              
               return (
                 <div
-                  key={peminjaman.id}
+                  key={item.id}
                   className="group relative overflow-hidden rounded-2xl glass p-6 transition-all duration-300 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/10 animate-slide-up"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  {isOverdue && (
-                    <div className="absolute top-3 right-3 bg-red-500/90 text-white px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Terlambat {daysLate} hari
-                    </div>
-                  )}
+                  <div className="absolute top-3 right-3">
+                    {getStatusBadge(daysRemaining)}
+                  </div>
 
-                  <div className="relative">
+                  <div className="relative mt-8">
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl gradient-accent glow-accent">
                       <Package className="h-6 w-6 text-primary-foreground" />
                     </div>
-                    <h3 className="mb-1 text-lg font-bold text-card-foreground">{peminjaman.alat?.nama_alat}</h3>
-                    <p className="mb-4 text-sm text-muted-foreground">Jumlah: {peminjaman.jumlah_pinjam}</p>
+
+                    <h3 className="mb-1 text-lg font-bold text-card-foreground">{item.alat?.nama_alat}</h3>
+                    <p className="mb-4 text-sm text-muted-foreground">Jumlah: {item.jumlah_pinjam}</p>
+
                     <div className="mb-5 space-y-2 text-sm">
                       <p className="flex items-center gap-2 text-muted-foreground">
                         <Calendar className="h-4 w-4" />
                         Tgl Pinjam:{" "}
                         <span className="text-card-foreground">
-                          {peminjaman.tanggal_pinjam
-                            ? new Date(peminjaman.tanggal_pinjam).toLocaleDateString("id-ID")
+                          {item.tanggal_pinjam
+                            ? new Date(item.tanggal_pinjam).toLocaleDateString("id-ID")
                             : "-"}
                         </span>
                       </p>
                       <p className="flex items-center gap-2 text-muted-foreground">
                         <Calendar className="h-4 w-4" />
                         Batas Kembali:{" "}
-                        <span className={isOverdue ? "text-red-600 font-semibold" : "text-card-foreground"}>
-                          {peminjaman.tanggal_kembali_rencana
-                            ? new Date(peminjaman.tanggal_kembali_rencana).toLocaleDateString("id-ID")
+                        <span className={daysRemaining < 0 ? "text-red-600 font-semibold" : "text-card-foreground"}>
+                          {item.tanggal_kembali_rencana
+                            ? new Date(item.tanggal_kembali_rencana).toLocaleDateString("id-ID")
                             : "-"}
                         </span>
                       </p>
-                      {isOverdue && (
+                      {daysRemaining < 0 && (
                         <p className="flex items-center gap-2 text-red-600 font-semibold text-xs">
-                          💸 Estimasi Denda: {formatCurrency(daysLate * 10000)}
+                          💸 Estimasi Denda: {formatCurrency(Math.abs(daysRemaining) * 10000)}
                         </p>
                       )}
                     </div>
+
                     <button
-                      onClick={() => openReturnModal(peminjaman)}
+                      onClick={() => openReturnModal(item)}
                       className="flex w-full items-center justify-center gap-2 rounded-2xl gradient-accent py-3 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:opacity-90 hover:shadow-lg hover:shadow-accent/25 glow-accent"
                     >
                       <RotateCcw className="h-4 w-4" />
@@ -436,8 +795,18 @@ export default function PeminjamPengembalianPage() {
             })}
           </div>
         )}
+      </div>
 
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Pengembalian Alat">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          reset()
+          setSelectedPeminjaman(null)
+        }}
+        title="Form Pengembalian Alat"
+      >
+        {selectedPeminjaman && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="rounded-2xl glass p-4">
               <div className="flex items-center gap-3">
@@ -454,8 +823,8 @@ export default function PeminjamPengembalianPage() {
             {estimatedDenda > 0 && (
               <div className="rounded-2xl bg-red-50 border border-red-200 p-4">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-                  <div>
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
                     <p className="text-sm font-semibold text-red-900">Peringatan Denda</p>
                     <p className="text-xs text-red-700 mt-1">
                       Estimasi denda keterlambatan: <strong>{formatCurrency(estimatedDenda)}</strong>
@@ -487,26 +856,20 @@ export default function PeminjamPengembalianPage() {
                 <p className="mt-2 text-xs text-destructive animate-fade-in">{errors.kondisi_alat.message}</p>
               )}
               {kondisiAlat && kondisiAlat !== 'baik' && (
-                <p className="mt-2 text-xs text-orange-600">
-                  ⚠️ Denda kerusakan akan ditentukan oleh petugas
-                </p>
+                <div className="mt-2 rounded-lg bg-orange-50 border border-orange-200 p-3">
+                  <p className="text-xs text-orange-700 font-medium">
+                    ⚠️ Denda kerusakan akan ditentukan oleh petugas berdasarkan tingkat kerusakan
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    Pastikan kondisi yang dilaporkan sesuai dengan kondisi sebenarnya. Jika berbeda saat pengecekan offline, denda akan disesuaikan.
+                  </p>
+                </div>
               )}
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-card-foreground">
-                Jumlah Dikembalikan <span className="text-destructive">*</span>
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={selectedPeminjaman?.jumlah_pinjam ?? 1}
-                {...register("jumlah_dikembalikan", { 
-                  valueAsNumber: true,
-                  required: "Jumlah dikembalikan harus diisi",
-                })}
-                className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
-              />
+              <div className="mt-2 rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Penting:</strong> Petugas akan melakukan pengecekan ulang kondisi alat secara offline. Jika kondisi yang Anda laporkan tidak sesuai dengan hasil pengecekan, akan dikenakan denda tambahan sesuai tingkat kerusakan yang sebenarnya.
+                </p>
+              </div>
             </div>
 
             <div>
@@ -515,6 +878,7 @@ export default function PeminjamPengembalianPage() {
                 {...register("catatan")}
                 rows={3}
                 className="mt-2 w-full rounded-2xl border border-border/50 bg-input/30 px-4 py-3 text-sm text-foreground transition-all duration-300 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-border"
+                placeholder="Tambahkan catatan jika diperlukan..."
               />
             </div>
 
@@ -541,8 +905,8 @@ export default function PeminjamPengembalianPage() {
               </button>
             </div>
           </form>
-        </Modal>
-      </div>
+        )}
+      </Modal>
     </>
   )
 }

@@ -22,7 +22,7 @@ export const alatSchema = z.object({
   nama_alat: z.string().min(1, "Nama alat wajib diisi"),
   kategori_id: z.number().min(1, "Kategori wajib dipilih"),
   deskripsi: z.string().optional(),
-  kondisi: z.enum(["Baik", "Rusak Ringan", "Rusak Berat"]),
+  kondisi: z.enum(["baik", "rusak ringan", "rusak berat"]),
   jumlah_total: z.number().min(1, "Jumlah total minimal 1"),
   jumlah_tersedia: z.number().min(0, "Jumlah tersedia tidak boleh negatif"),
   lokasi_penyimpanan: z.string().min(1, "Lokasi penyimpanan wajib diisi"),
@@ -42,16 +42,16 @@ export const peminjamanSchema = z.object({
   alat_id: z.number().min(1, "Pilih alat"),
   jumlah_pinjam: z.number().min(1, "Jumlah minimal 1"),
   tanggal_pinjam: z.string().min(1, "Tanggal pinjam harus diisi"),
-  tanggal_kembali: z.string().min(1, "Tanggal kembali harus diisi"),
+  tanggal_kembali_rencana: z.string().min(1, "Tanggal kembali harus diisi"),
   catatan: z.string().optional(),
 })
 
 export const pengembalianSchema = z.object({
-  peminjaman_id: z.number().min(1, "Pilih peminjaman"),
-  kondisi_alat: z.string().min(1, "Kondisi alat harus diisi"),
-  jumlah_dikembalikan: z.number().min(1, "Minimal 1").max(10, "Maksimal sesuai jumlah pinjam"),
-  catatan: z.string().optional(),
+  peminjaman_id: z.number(),
+  kondisi_alat: z.string().min(1, "Kondisi alat harus dipilih"),
+  catatan: z.string().optional(), // ✅ jangan pakai .min(1)
 })
+
 
 export const userSchema = z.object({
   username: z.string().min(3, "Username minimal 3 karakter"),
