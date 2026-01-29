@@ -29,7 +29,7 @@ export default function AdminDashboard() {
         setStats({
   users: usersRes.pagination.total,
   alat: alatRes.pagination.total,
-  peminjaman: peminjamanRes.pagination.total,
+  peminjaman: peminjamanRes.pagination.totalPages,
   pengembalian: pengembalianRes.pagination.total,
 })
       } catch (error) {
